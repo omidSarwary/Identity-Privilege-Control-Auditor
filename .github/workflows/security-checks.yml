@@ -12,9 +12,36 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Check for placeholder safety markers
+      - name: Check for obvious secret markers
         run: |
           set -euo pipefail
-          test -f .gitignore
-          test -f bash/linux_identity_audit.sh
-          test -f powershell/windows_identity_audit.ps1
+          if grep -RInE --exclude-dir=.git --exclude-dir=.venv --exclude-dir=__pycache__ \
+            '(password[[:space:]]*=|api_key|secret|token)' app.py src bash powershell tests config; then
+            echo "Potential secret markers were found."
+            exit 1
+          fi
+
+      - name: Confirm tracked files do not include runtime output
+        run: |
+          set -euo pipefail
+          tracked_files="$(git ls-files)"
+          if printf '%s\n' "$tracked_files" | grep -E '(^|/)(logs/|reports/|data/alerts/|data/collected/|data/normalized/).*'; then
+            echo "Runtime output appears to be tracked in git."
+            exit 1
+          fi
+
+          if printf '%s\n' "$tracked_files" | grep -Fx 'project.md'; then
+            echo "project.md must not be tracked."
+            exit 1
+          fi
+
+          if printf '%s\n' "$tracked_files" | grep -Fx 'phased plan.md'; then
+            echo "phased plan.md must not be tracked."
+            exit 1
+          fi
+
+      - name: Check PowerShell and Python safety markers
+        run: |
+          set -euo pipefail
+          grep -q 'Export-Csv -NoTypeInformation' powershell/windows_identity_audit.ps1
+          ! grep -RIn --exclude-dir=.git --exclude-dir=.venv --exclude-dir=__pycache__ 'shell=True' src/core/command_runner.py

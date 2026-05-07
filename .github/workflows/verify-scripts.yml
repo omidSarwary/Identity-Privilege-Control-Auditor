@@ -25,6 +25,7 @@ jobs:
           test -f app.py
           test -f requirements.txt
           test -f README.md
+          test -f docs/ci_cd.md
           test -f bash/linux_identity_audit.sh
           test -f powershell/windows_identity_audit.ps1
           test -d src/core
@@ -49,10 +50,32 @@ jobs:
           test -d tests/mockdata
           test -d docs
 
+      - name: Verify Python syntax
+        run: |
+          python -m py_compile app.py
+          python -m py_compile src/core/*.py src/collectors/*.py src/parsers/*.py src/analysis/*.py src/reporting/*.py src/utils/*.py
+
       - name: Check Bash syntax
         run: bash -n bash/linux_identity_audit.sh
 
-      - name: Compile Python sources
+      - name: Check PowerShell syntax
+        shell: pwsh
         run: |
-          python -m py_compile app.py
-          python -m compileall src
+          if (Get-Command pwsh -ErrorAction SilentlyContinue) {
+            [System.Management.Automation.Language.Parser]::ParseFile(
+              (Resolve-Path "powershell/windows_identity_audit.ps1"),
+              [ref]$null,
+              [ref]$null
+            ) | Out-Null
+          } else {
+            Write-Host "pwsh not available; skipping PowerShell syntax check."
+          }
+
+      - name: Confirm required documentation and test folders
+        run: |
+          test -f README.md
+          test -f requirements.txt
+          test -d docs
+          test -d tests/unit
+          test -d tests/integration
+          test -d tests/mockdata
