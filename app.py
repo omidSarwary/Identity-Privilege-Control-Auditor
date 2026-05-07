@@ -122,9 +122,10 @@ def main(argv: Sequence[str] | None = None, input_func: Callable[[str], str] = i
         app_config = load_app_config()
         project_name = str(app_config.get("project_name", "NordSec Identity & Privilege Control Auditor"))
         project_version = str(app_config.get("version", "0.0.0"))
+        banner_mode = "test" if (args.test or args.mode == "test") else ("production" if args.mode in {"linux", "windows"} else "interactive")
 
         logger.info("Program start")
-        print_message(format_banner(project_name, project_version, "interactive"))
+        print_message(format_banner(project_name, project_version, banner_mode))
 
         requested_platform = "test" if args.test else args.mode
         platform_selection = choose_platform(
@@ -151,12 +152,6 @@ def main(argv: Sequence[str] | None = None, input_func: Callable[[str], str] = i
         data_paths = _build_data_paths(mode_config)
 
         fallback_result = collect_fallback_data(mode=platform_selection.analysis_mode)
-        logger.info("Fallback result: %s", fallback_result.get("fallback_reason", "unknown"))
-        if fallback_result.get("used_files"):
-            logger.info(
-                "Fallback files used: %s",
-                ", ".join(f"{name}={details['path']}" for name, details in fallback_result["used_files"].items()),
-            )
 
         if fallback_result.get("no_data_found"):
             print_message("No usable data was found. The application will exit safely.")
