@@ -32,6 +32,7 @@ APP_CONFIG_FILE = CONFIG_DIR / "app_config.json"
 RISK_RULES_FILE = CONFIG_DIR / "risk_rules.json"
 PRODUCTION_CONFIG_FILE = CONFIG_DIR / "production_config.json"
 TEST_CONFIG_FILE = CONFIG_DIR / "test_config.json"
+REQUIREMENTS_FILE = PROJECT_ROOT / "requirements.txt"
 
 REQUIRED_DIRECTORIES = (
     DATA_DIR,

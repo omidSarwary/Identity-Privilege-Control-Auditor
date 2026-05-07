@@ -130,7 +130,6 @@ def _load_log_source(path: Path) -> list[str]:
 
 
 def _attempt_source_load(
-    source_name: str,
     spec: Mapping[str, Any],
     candidate: Path,
 ) -> tuple[Any, ValidationStatus | None, str | None]:
@@ -202,7 +201,7 @@ def collect_fallback_data(mode: str = "production") -> dict[str, Any]:
                 continue
 
             LOGGER.info("Fallback source candidate found: %s", candidate)
-            payload, validation, error_message = _attempt_source_load(source_name, spec, candidate)
+            payload, validation, error_message = _attempt_source_load(spec, candidate)
             if validation is None:
                 LOGGER.warning("Fallback source skipped: %s (%s)", candidate, error_message)
                 attempts.append(
