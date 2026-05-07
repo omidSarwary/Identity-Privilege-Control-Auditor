@@ -35,6 +35,11 @@ The sensor scripts may produce little or no terminal output because they write
 results to `data/collected/` and `logs/`. Confirm success by checking exit code
 `0` and validating the generated files.
 
+The application-level `--test` flow exercises the full Python pipeline with
+mockdata and does not run the Linux or Windows collectors directly. The
+component sensors can still be tested separately with their own commands when
+you want to validate the Bash or PowerShell layer in isolation.
+
 Validation examples:
 
 ```bash

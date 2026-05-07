@@ -62,3 +62,20 @@ Useful manual checks include:
 
 These checks help confirm that the orchestrator, collectors, fallback logic,
 and reporting flow still behave as expected.
+
+## QA Summary
+
+Current release-candidate verification confirms:
+
+- the Python test suite passes
+- the project compiles with `python -m compileall app.py src tests`
+- the Bash sensor parses with `bash -n`
+- the test pipeline generates reports and alerts in test mode
+- the system remains read-only and safe-exit behavior is preserved
+
+Known limitations remain the same as documented elsewhere in the project:
+
+- missing evidence can still trigger fallback or safe exit
+- report quality depends on the source data and baselines provided
+- sensor scripts write evidence to files rather than producing verbose terminal
+  output
