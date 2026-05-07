@@ -25,8 +25,22 @@ jobs:
         run: |
           set -euo pipefail
           tracked_files="$(git ls-files)"
-          if printf '%s\n' "$tracked_files" | grep -E '(^|/)(logs/|reports/|data/alerts/|data/collected/|data/normalized/).*'; then
-            echo "Runtime output appears to be tracked in git."
+          # Runtime folders may keep only .gitkeep markers under version control.
+          tracked_runtime="$(git ls-files logs data/alerts data/collected data/normalized)"
+          disallowed_runtime="$(printf '%s\n' "$tracked_runtime" | grep -Ev '(^|/)\.gitkeep$' || true)"
+          if [ -n "$disallowed_runtime" ]; then
+            echo "Tracked runtime files found under logs/ or data runtime folders:"
+            printf '%s\n' "$disallowed_runtime"
+            exit 1
+          fi
+
+          # Reports are generated at runtime. Only evidence placeholder .gitkeep
+          # files are allowed to remain tracked inside reports/evidence/.
+          tracked_reports="$(git ls-files reports)"
+          disallowed_reports="$(printf '%s\n' "$tracked_reports" | grep -Ev '^reports/evidence(/[^/]+)*/\.gitkeep$|^reports/evidence/\.gitkeep$' || true)"
+          if [ -n "$disallowed_reports" ]; then
+            echo "Tracked report artifacts found under reports/:"
+            printf '%s\n' "$disallowed_reports"
             exit 1
           fi
 

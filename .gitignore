@@ -20,6 +20,9 @@ data/normalized/*
 !data/normalized/.gitkeep
 data/alerts/*
 !data/alerts/.gitkeep
+reports/final_identity_risk_report.txt
+reports/final_identity_risk_report.json
+reports/executive_summary.txt
 project.md
 phased plan.md
 Final-Project.txt
