@@ -1,1 +1,13 @@
-{}
+{
+  "source": "linux",
+  "host": "linux-test-host",
+  "collection_time": "2026-05-07T12:00:00Z",
+  "mode": "test",
+  "policy": {
+    "ssh_policy": {
+      "permit_root_login": "no",
+      "password_authentication": "no",
+      "pubkey_authentication": "yes"
+    }
+  }
+}

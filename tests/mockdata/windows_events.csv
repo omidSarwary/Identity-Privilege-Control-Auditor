@@ -1,1 +1,4 @@
 ComputerName,TimeCreated,EventId,TargetUserName,IpAddress,EventType
+WIN-TEST-01,2026-05-07T06:40:00Z,4625,disabled_user,10.0.0.25,failed_login
+WIN-TEST-01,2026-05-07T06:45:00Z,4625,unauthorized_admin,10.0.0.25,failed_login
+WIN-TEST-01,2026-05-07T07:10:00Z,4624,normal_user,10.0.0.50,successful_login

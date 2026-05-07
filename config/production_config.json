@@ -1,1 +1,11 @@
-{}
+{
+  "mode": "production",
+  "paths": {
+    "collected": "data/collected",
+    "incoming": "data/incoming",
+    "logdata": "logdata"
+  },
+  "logging": {
+    "enabled": true
+  }
+}

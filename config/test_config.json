@@ -1,1 +1,11 @@
-{}
+{
+  "mode": "test",
+  "paths": {
+    "mockdata": "tests/mockdata"
+  },
+  "collector_behavior": {
+    "avoid_live_system_changes": true,
+    "avoid_live_log_modification": true,
+    "use_mockdata_only": true
+  }
+}

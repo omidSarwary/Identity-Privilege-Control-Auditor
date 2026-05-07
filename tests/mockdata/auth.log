@@ -1,1 +1,2 @@
-# Placeholder mock log for tests.
+May  7 06:40:00 linux-test-host sshd[1001]: Failed password for disabled_user from 10.0.0.25 port 51422 ssh2
+May  7 06:45:00 linux-test-host sshd[1002]: Failed password for unauthorized_sudo from 10.0.0.25 port 51423 ssh2

@@ -1,1 +1,10 @@
-Expected report placeholder.
+NORDSEC IDENTITY & PRIVILEGE CONTROL AUDIT REPORT
+Expected mockdata outcome:
+- Approved Linux sudo account present
+- Unapproved Linux sudo account present
+- Approved Windows admin account present
+- Unapproved Windows admin account present
+- Disabled account with failed login activity present
+- Inactive privileged account present
+- Policy deviations present
+- Normal user present

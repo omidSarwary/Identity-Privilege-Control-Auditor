@@ -1,1 +1,52 @@
-{}
+{
+  "risk_levels": {
+    "CRITICAL": {
+      "threshold": 90,
+      "description": "Immediate action required"
+    },
+    "HIGH": {
+      "threshold": 70,
+      "description": "High-risk privilege or policy deviation"
+    },
+    "MEDIUM": {
+      "threshold": 40,
+      "description": "Needs review"
+    },
+    "LOW": {
+      "threshold": 0,
+      "description": "Informational or expected state"
+    }
+  },
+  "rules": [
+    {
+      "name": "disabled_account_with_activity",
+      "risk_level": "CRITICAL",
+      "description": "Disabled account shows authentication activity."
+    },
+    {
+      "name": "unauthorized_windows_admin",
+      "risk_level": "CRITICAL",
+      "description": "Windows local administrator is not approved."
+    },
+    {
+      "name": "unauthorized_linux_sudo",
+      "risk_level": "CRITICAL",
+      "description": "Linux sudo user is not approved."
+    },
+    {
+      "name": "privileged_account_with_failed_logins",
+      "risk_level": "HIGH",
+      "description": "Privileged account has failed login activity."
+    },
+    {
+      "name": "inactive_privileged_account",
+      "risk_level": "HIGH",
+      "description": "Privileged account is inactive."
+    },
+    {
+      "name": "policy_deviation",
+      "risk_level": "MEDIUM",
+      "description": "Policy state differs from the expected baseline."
+    }
+  ]
+}

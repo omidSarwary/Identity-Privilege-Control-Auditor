@@ -1,1 +1,4 @@
 ComputerName,CheckName,Status,Value,RiskHint
+WIN-TEST-01,firewall_enabled,False,Disabled,Policy deviation
+WIN-TEST-01,audit_policy_enabled,True,Enabled,Expected
+WIN-TEST-01,execution_policy,False,Unrestricted,Policy deviation

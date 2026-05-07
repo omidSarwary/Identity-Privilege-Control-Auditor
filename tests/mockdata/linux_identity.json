@@ -1,1 +1,66 @@
-{}
+{
+  "source": "linux",
+  "host": "linux-test-host",
+  "collection_time": "2026-05-07T12:00:00Z",
+  "mode": "test",
+  "users": [
+    {
+      "username": "ops_backup",
+      "enabled": true,
+      "privileges": ["sudo"],
+      "is_inactive": false,
+      "last_login": "2026-05-06T08:15:00Z"
+    },
+    {
+      "username": "unauthorized_sudo",
+      "enabled": true,
+      "privileges": ["sudo"],
+      "is_inactive": false,
+      "last_login": "2026-05-07T05:10:00Z"
+    },
+    {
+      "username": "svc_archive",
+      "enabled": true,
+      "privileges": ["sudo"],
+      "is_inactive": true,
+      "last_login": "2025-12-01T09:00:00Z"
+    },
+    {
+      "username": "normal_user",
+      "enabled": true,
+      "privileges": [],
+      "is_inactive": false,
+      "last_login": "2026-05-07T09:00:00Z"
+    }
+  ],
+  "sudo_users": [
+    "ops_backup",
+    "unauthorized_sudo",
+    "svc_archive"
+  ],
+  "auth_events": [
+    {
+      "username": "unauthorized_sudo",
+      "event_type": "failed_login",
+      "count": 3,
+      "timestamp": "2026-05-07T05:10:00Z"
+    },
+    {
+      "username": "svc_archive",
+      "event_type": "failed_login",
+      "count": 1,
+      "timestamp": "2026-05-07T05:20:00Z"
+    }
+  ],
+  "policy": {
+    "ssh_policy": {
+      "permit_root_login": "no",
+      "password_authentication": "no",
+      "pubkey_authentication": "yes"
+    }
+  },
+  "collector_status": {
+    "source": "mockdata",
+    "status": "ready"
+  }
+}
