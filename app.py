@@ -19,6 +19,7 @@ from src.core.paths import (
 )
 from src.analysis.identity_risk_engine import run_identity_risk_engine
 from src.parsers.json_loader import load_json_file
+from src.reporting.report_writer import write_reports
 from src.utils.console import format_banner, print_message
 from src.utils.logging_config import get_component_logger, setup_logging
 
@@ -81,12 +82,14 @@ def main() -> int:
             data_paths=data_paths,
             run_id=run_id,
         )
+        report_paths = write_reports(analysis_result)
 
         logger.info(
             "Analysis completed with %s findings across %s identities",
             len(analysis_result.get("findings", [])),
             len(analysis_result.get("summary", {}).get("identities", [])),
         )
+        logger.info("Report artifacts created: %s", ", ".join(f"{name}={path}" for name, path in report_paths.items()))
         logger.info("Safe exit")
         return 0
     except Exception as exc:  # pragma: no cover - defensive bootstrap guard
