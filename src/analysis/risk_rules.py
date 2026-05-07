@@ -56,7 +56,12 @@ def _is_truthy(value: Any) -> bool:
 def _count_failed_logins(events: Sequence[Mapping[str, Any]], username: str) -> int:
     count = 0
     for event in events:
-        event_user = str(event.get("TargetUserName") or event.get("username") or "")
+        event_user = str(
+            event.get("TargetUserName")
+            or event.get("username")
+            or event.get("target_user")
+            or ""
+        )
         event_type = str(event.get("event_type") or event.get("EventType") or "")
         if event_user == username and event_type.lower() == "failed_login":
             raw_count = event.get("count", 1)
@@ -298,6 +303,27 @@ def weak_ssh_policy(
             recommended_action="Review SSH settings against the approved baseline.",
         )
     return None
+
+
+def policy_deviation(
+    identity: str,
+    finding: str,
+    reason: str,
+    source: str,
+) -> dict[str, str]:
+    """Return a medium-risk finding for a policy deviation.
+
+    The function is intentionally generic so correlation can describe a control
+    mismatch without duplicating the rule in multiple places.
+    """
+    return create_finding(
+        risk_level=RiskLevel.MEDIUM,
+        identity=identity,
+        finding=finding,
+        reason=reason,
+        source=source,
+        recommended_action="Review the policy against the approved baseline.",
+    )
 
 
 def normal_user_single_failed_logins(
