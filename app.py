@@ -84,23 +84,21 @@ def _build_data_paths(mode_config: dict[str, object]) -> dict[str, object]:
 def _run_platform_collectors(platform_selection: object) -> list[dict[str, object]]:
     """Run the approved collector modules for the selected platform.
 
-    The application uses the Linux Bash sensor for Linux runs, the PowerShell
-    sensor for Windows runs, and both collectors in test mode so the mock data
-    path can be validated without touching live logs.
+    The application uses the Linux Bash sensor for Linux runs and the
+    PowerShell sensor for Windows runs. Test mode skips platform collectors
+    entirely and relies on fallback/mock data so it stays safe on any host.
     """
     platform = str(getattr(platform_selection, "platform", "")).strip().lower()
     analysis_mode = str(getattr(platform_selection, "analysis_mode", "production")).strip().lower()
 
+    if platform == "test":
+        return []
     if platform == "linux":
         return [collect_linux_data(mode=analysis_mode)]
     if platform == "windows":
         return [collect_windows_data(mode=analysis_mode)]
 
-    # Test mode validates both sensor adapters without changing live data.
-    return [
-        collect_linux_data(mode="test"),
-        collect_windows_data(mode="test"),
-    ]
+    return []
 
 
 def _collectors_succeeded(collector_results: list[dict[str, object]]) -> bool:
@@ -149,6 +147,27 @@ def _build_collector_fallback_result(
         "sources": {},
         "payloads": {},
     }
+
+
+def _collector_status_text(collector_result: dict[str, object]) -> str:
+    """Build a clear collector status string for logging.
+
+    The log line explains whether the collector command failed, whether output
+    files were missing, or whether both conditions occurred. This avoids the
+    misleading ``missing_outputs=none`` text when the command itself failed.
+    """
+    success = bool(collector_result.get("success"))
+    command_info = collector_result.get("command", {})
+    if isinstance(command_info, dict):
+        returncode = command_info.get("returncode", "unknown")
+    else:
+        returncode = "unknown"
+
+    missing_outputs = collector_result.get("missing_outputs", [])
+    missing_text = ", ".join(str(item) for item in missing_outputs) if missing_outputs else "none"
+    if success:
+        return f"success=True returncode={returncode} missing_outputs={missing_text}"
+    return f"success=False returncode={returncode} missing_outputs={missing_text}"
 
 
 def _format_final_summary(
@@ -226,14 +245,15 @@ def main(argv: Sequence[str] | None = None, input_func: Callable[[str], str] = i
         collector_results = _run_platform_collectors(platform_selection)
         for collector_result in collector_results:
             logger.info(
-                "Collector result: platform=%s mode=%s success=%s missing_outputs=%s",
+                "Collector result: platform=%s mode=%s %s",
                 collector_result.get("platform", "unknown"),
                 collector_result.get("mode", platform_selection.analysis_mode),
-                bool(collector_result.get("success")),
-                ", ".join(str(item) for item in collector_result.get("missing_outputs", [])) or "none",
+                _collector_status_text(collector_result),
             )
 
-        if _collectors_succeeded(collector_results):
+        if not collector_results:
+            fallback_result = collect_fallback_data(mode=platform_selection.analysis_mode)
+        elif _collectors_succeeded(collector_results):
             fallback_result = _build_collector_fallback_result(
                 collector_results=collector_results,
                 analysis_mode=platform_selection.analysis_mode,
