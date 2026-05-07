@@ -12,6 +12,8 @@ def test_choose_platform_with_test_flag() -> None:
     assert selection.platform == "test"
     assert selection.analysis_mode == "test"
     assert selection.use_mockdata is True
+    assert selection.log_hours == 24
+    assert selection.max_events == 1000
 
 
 def test_choose_platform_with_requested_linux_mode() -> None:
@@ -21,13 +23,42 @@ def test_choose_platform_with_requested_linux_mode() -> None:
     assert selection.platform == "linux"
     assert selection.analysis_mode == "production"
     assert selection.use_mockdata is False
+    assert selection.log_hours == 24
+    assert selection.max_events == 1000
     assert "Windows logs should be copied manually" in selection.instructions
 
 
 def test_choose_platform_prompts_for_input() -> None:
     """Interactive selection should accept a valid answer from the prompt."""
-    selection = choose_platform(input_func=lambda _: "windows")
+    responses = iter(["windows", "12", "500"])
+    selection = choose_platform(input_func=lambda _: next(responses))
 
     assert selection.platform == "windows"
     assert selection.analysis_mode == "production"
     assert "Linux logs should be copied manually" in selection.instructions
+    assert selection.log_hours == 12
+    assert selection.max_events == 500
+
+
+def test_choose_platform_defaults_invalid_collection_window_values() -> None:
+    """Invalid collection-window values should safely fall back to defaults."""
+    selection = choose_platform(
+        requested_platform="windows",
+        windows_log_hours="abc",
+        windows_max_events="-10",
+    )
+
+    assert selection.log_hours == 24
+    assert selection.max_events == 1000
+
+
+def test_choose_platform_clamps_collection_window_values() -> None:
+    """Collection-window values above the safety bound should be clamped."""
+    selection = choose_platform(
+        requested_platform="linux",
+        linux_log_hours="800",
+        linux_max_events="20000",
+    )
+
+    assert selection.log_hours == 720
+    assert selection.max_events == 10000

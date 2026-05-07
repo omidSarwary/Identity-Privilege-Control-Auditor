@@ -32,16 +32,38 @@ def _verify_outputs(expected_outputs: dict[str, Path]) -> list[str]:
     return missing_outputs
 
 
-def collect_linux_data(mode: str = "production", timeout: float | None = 300.0) -> dict[str, Any]:
+def collect_linux_data(
+    mode: str = "production",
+    *,
+    log_hours: int = 24,
+    max_events: int = 1000,
+    timeout: float | None = 300.0,
+) -> dict[str, Any]:
     """Run the Linux Bash sensor and validate its expected outputs.
 
-    Expects a mode string and returns a structured status dictionary. The
-    function only launches the approved sensor script and checks whether the
-    expected JSON files were created successfully.
+    Expects a mode string plus bounded log-window settings and returns a
+    structured status dictionary. The function only launches the approved
+    sensor script and checks whether the expected JSON files were created
+    successfully. The extra limits keep the read-only collection bounded so
+    large logs do not block the orchestrator.
     """
     selected_mode = _normalized_mode(mode)
-    command = ["bash", str(LINUX_SENSOR_SCRIPT), "--mode", selected_mode]
-    LOGGER.info("Starting Linux collector in %s mode", selected_mode)
+    command = [
+        "bash",
+        str(LINUX_SENSOR_SCRIPT),
+        "--mode",
+        selected_mode,
+        "--log-hours",
+        str(log_hours),
+        "--max-events",
+        str(max_events),
+    ]
+    LOGGER.info(
+        "Starting Linux collector in %s mode (log_hours=%s max_events=%s)",
+        selected_mode,
+        log_hours,
+        max_events,
+    )
     command_result = run_command(command, cwd=PROJECT_ROOT, timeout=timeout)
 
     missing_outputs = _verify_outputs(EXPECTED_OUTPUTS)

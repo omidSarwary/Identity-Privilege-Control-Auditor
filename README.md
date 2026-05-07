@@ -75,6 +75,13 @@ python app.py --mode linux
 python app.py --mode windows
 ```
 
+You can also provide bounded log collection settings explicitly:
+
+```bash
+python app.py --mode linux --linux-log-hours 12 --linux-max-events 500
+python app.py --mode windows --windows-log-hours 12 --windows-max-events 500
+```
+
 ## Production Mode
 
 Production mode uses the platform-specific sensor and the fallback search
@@ -82,8 +89,12 @@ logic:
 
 - Linux mode runs the Bash sensor and expects Linux evidence
 - Windows mode runs the PowerShell sensor and expects Windows evidence
+- interactive production mode prompts for a log lookback window and a maximum
+  event or line limit, with safe defaults of 24 hours and 1000 items
 - manually exported evidence can be placed in `data/incoming/`
 - raw logs can be placed in `logdata/linux/` or `logdata/windows/`
+- if older logs are needed, export them manually and place them in
+  `data/incoming/`, `logdata/linux/`, or `logdata/windows/`
 - fallback is used when the primary collector does not produce usable output
 
 ## Test Mode

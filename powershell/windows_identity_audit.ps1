@@ -14,11 +14,23 @@
 [CmdletBinding()]
 param(
     [ValidateSet("Production", "Test")]
-    [string]$Mode = "Production"
+    [string]$Mode = "Production",
+
+    [string]$LogHours = "24",
+
+    [string]$MaxEvents = "1000"
 )
 
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
+
+$script:DefaultLogHours = 24
+$script:DefaultMaxEvents = 1000
+$script:MaxLogHours = 720
+$script:MaxMaxEvents = 10000
+$script:ResolvedLogHours = $script:DefaultLogHours
+$script:ResolvedMaxEvents = $script:DefaultMaxEvents
+$script:ResolvedStartTime = $null
 
 $ScriptRoot = Split-Path -Parent $MyInvocation.MyCommand.Path
 $ProjectRoot = Split-Path -Parent $ScriptRoot
@@ -65,6 +77,65 @@ function Write-Log {
     if ($Level -ne 'INFO') {
         Add-Content -Path $AnomaliesLogPath -Value $entry -Encoding UTF8
     }
+}
+
+function Resolve-PositiveIntValue {
+    <#
+    .SYNOPSIS
+        Normalize a numeric option and keep it within safe bounds.
+
+    .DESCRIPTION
+        Converts a raw string value into a positive integer, falls back to a
+        documented default when parsing fails, and clamps values that exceed
+        the configured safety limit. This keeps collection bounded without
+        crashing when the user supplies unexpected input.
+    #>
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$RawValue,
+
+        [Parameter(Mandatory = $true)]
+        [int]$DefaultValue,
+
+        [Parameter(Mandatory = $true)]
+        [int]$UpperBound,
+
+        [Parameter(Mandatory = $true)]
+        [string]$Label
+    )
+
+    if ([string]::IsNullOrWhiteSpace($RawValue)) {
+        return $DefaultValue
+    }
+
+    $parsedValue = 0
+    if (-not [int]::TryParse($RawValue, [ref]$parsedValue) -or $parsedValue -le 0) {
+        Write-Log -Level 'WARNING' -Message "$Label '$RawValue' is invalid; using default $DefaultValue."
+        return $DefaultValue
+    }
+
+    if ($parsedValue -gt $UpperBound) {
+        Write-Log -Level 'WARNING' -Message "$Label '$RawValue' exceeds the maximum $UpperBound; clamping to $UpperBound."
+        return $UpperBound
+    }
+
+    return $parsedValue
+}
+
+function Initialize-CollectionWindow {
+    <#
+    .SYNOPSIS
+        Resolve and log the bounded Security log collection window.
+
+    .DESCRIPTION
+        Applies the safe log lookback hours and maximum event limit before the
+        Security log is queried. The resolved values are recorded in the audit
+        log so the run can be traced later.
+    #>
+    $script:ResolvedLogHours = Resolve-PositiveIntValue -RawValue $LogHours -DefaultValue $script:DefaultLogHours -UpperBound $script:MaxLogHours -Label 'Windows log hours'
+    $script:ResolvedMaxEvents = Resolve-PositiveIntValue -RawValue $MaxEvents -DefaultValue $script:DefaultMaxEvents -UpperBound $script:MaxMaxEvents -Label 'Windows max events'
+    $script:ResolvedStartTime = (Get-Date).AddHours(-1 * $script:ResolvedLogHours)
+    Write-Log -Level 'INFO' -Message ("Windows Security collection window resolved: LogHours={0}, MaxEvents={1}, StartTime={2}" -f $script:ResolvedLogHours, $script:ResolvedMaxEvents, $script:ResolvedStartTime.ToUniversalTime().ToString('yyyy-MM-ddTHH:mm:ssZ'))
 }
 
 function Initialize-Paths {
@@ -161,6 +232,39 @@ function Get-LocalIdentityData {
     }
 }
 
+function Get-EventDataValue {
+    <#
+    .SYNOPSIS
+        Read a named field from a Windows event record.
+
+    .DESCRIPTION
+        Converts the event to XML and extracts the requested event-data field.
+        This avoids brittle positional parsing while still keeping the event
+        collection bounded and read-only.
+    #>
+    param(
+        [Parameter(Mandatory = $true)]
+        [object]$EventRecord,
+
+        [Parameter(Mandatory = $true)]
+        [string]$FieldName
+    )
+
+    try {
+        [xml]$xmlEvent = $EventRecord.ToXml()
+        foreach ($dataNode in $xmlEvent.Event.EventData.Data) {
+            if ($dataNode.Name -eq $FieldName) {
+                return [string]$dataNode.'#text'
+            }
+        }
+    }
+    catch {
+        return ''
+    }
+
+    return ''
+}
+
 function Get-LocalAdminMembers {
     <#
     .SYNOPSIS
@@ -201,34 +305,27 @@ function Get-WindowsSecurityEvents {
         return Import-Csv -LiteralPath $testPath
     }
 
+    $filter = @{
+        LogName   = 'Security'
+        Id        = 4624, 4625
+        StartTime = $script:ResolvedStartTime
+    }
+
     try {
-        $events = Get-WinEvent -LogName Security -ErrorAction Stop |
-            Select-Object @{
-                Name       = 'ComputerName'
-                Expression = { $env:COMPUTERNAME }
-            }, @{
-                Name       = 'TimeCreated'
-                Expression = { $_.TimeCreated.ToUniversalTime().ToString('yyyy-MM-ddTHH:mm:ssZ') }
-            }, @{
-                Name       = 'EventId'
-                Expression = { $_.Id }
-            }, @{
-                Name       = 'TargetUserName'
-                Expression = { $_.Properties[5].Value }
-            }, @{
-                Name       = 'IpAddress'
-                Expression = {
-                    if ($_.Properties.Count -gt 18 -and $_.Properties[18].Value) { $_.Properties[18].Value } else { '' }
-                }
-            }, @{
-                Name       = 'EventType'
-                Expression = {
-                    if ($_.Id -eq 4625) { 'failed_login' }
-                    elseif ($_.Id -eq 4624) { 'successful_login' }
-                    else { 'security_event' }
+        $rawEvents = Get-WinEvent -FilterHashtable $filter -MaxEvents $script:ResolvedMaxEvents -ErrorAction Stop
+        $events = @(
+            $rawEvents | ForEach-Object {
+                [pscustomobject]@{
+                    ComputerName    = $env:COMPUTERNAME
+                    TimeCreated     = $_.TimeCreated.ToUniversalTime().ToString('yyyy-MM-ddTHH:mm:ssZ')
+                    EventId         = $_.Id
+                    TargetUserName  = (Get-EventDataValue -EventRecord $_ -FieldName 'TargetUserName')
+                    IpAddress       = (Get-EventDataValue -EventRecord $_ -FieldName 'IpAddress')
+                    EventType       = if ($_.Id -eq 4625) { 'failed_login' } elseif ($_.Id -eq 4624) { 'successful_login' } else { 'security_event' }
                 }
             }
-
+        )
+        Write-Log -Level 'INFO' -Message ("Collected {0} Windows Security events from Event IDs 4624 and 4625." -f $events.Count)
         return $events
     }
     catch {
@@ -376,6 +473,7 @@ function Invoke-WindowsAudit {
     #>
     Test-ExecutionContext
     Initialize-Paths
+    Initialize-CollectionWindow
     Write-Log -Level 'INFO' -Message "Starting Windows identity audit sensor in $Mode mode."
 
     $script:LocalAdminMembers = Get-LocalAdminMembers

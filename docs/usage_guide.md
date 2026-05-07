@@ -64,11 +64,30 @@ The chosen platform determines which sensor runs:
 - Linux mode uses the Bash sensor
 - Windows mode uses the PowerShell sensor
 
+Production runs can also be bounded with CLI options so very large logs do not
+need to be scanned in one pass:
+
+```bash
+python app.py --mode linux --linux-log-hours 12 --linux-max-events 500
+python app.py --mode windows --windows-log-hours 12 --windows-max-events 500
+```
+
+Interactive production mode prompts for the same values and falls back to the
+safe defaults of 24 hours and 1000 events or lines when Enter is pressed.
+
 ## Platform Choice
 
 When no explicit mode is passed, the application prompts for Linux, Windows, or
 test mode. This keeps the runtime explicit and makes it clear which evidence
 source is expected.
+
+When Linux or Windows is selected interactively, the app also asks how many
+hours of logs to analyze and how many events or lines to include. If older
+logs are needed, export them manually and place them in:
+
+- `data/incoming/`
+- `logdata/linux/`
+- `logdata/windows/`
 
 ## Fallback and Manual Evidence
 

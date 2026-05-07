@@ -66,6 +66,22 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
         action="store_true",
         help="Skip the extended bootstrap checks and continue with safe defaults.",
     )
+    parser.add_argument(
+        "--windows-log-hours",
+        help="Windows Security log lookback window in hours.",
+    )
+    parser.add_argument(
+        "--windows-max-events",
+        help="Maximum Windows Security events to collect.",
+    )
+    parser.add_argument(
+        "--linux-log-hours",
+        help="Linux log lookback window in hours.",
+    )
+    parser.add_argument(
+        "--linux-max-events",
+        help="Maximum Linux log lines or events to collect.",
+    )
     return parser.parse_args(argv)
 
 
@@ -94,9 +110,21 @@ def _run_platform_collectors(platform_selection: object) -> list[dict[str, objec
     if platform == "test":
         return []
     if platform == "linux":
-        return [collect_linux_data(mode=analysis_mode)]
+        return [
+            collect_linux_data(
+                mode=analysis_mode,
+                log_hours=getattr(platform_selection, "log_hours", 24),
+                max_events=getattr(platform_selection, "max_events", 1000),
+            )
+        ]
     if platform == "windows":
-        return [collect_windows_data(mode=analysis_mode)]
+        return [
+            collect_windows_data(
+                mode=analysis_mode,
+                log_hours=getattr(platform_selection, "log_hours", 24),
+                max_events=getattr(platform_selection, "max_events", 1000),
+            )
+        ]
 
     return []
 
@@ -239,10 +267,25 @@ def main(argv: Sequence[str] | None = None, input_func: Callable[[str], str] = i
             requested_platform=requested_platform,
             test_flag=args.test,
             input_func=input_func,
+            windows_log_hours=args.windows_log_hours,
+            windows_max_events=args.windows_max_events,
+            linux_log_hours=args.linux_log_hours,
+            linux_max_events=args.linux_max_events,
         )
         print_message(platform_selection.instructions)
         print_message(f"Selected platform: {platform_selection.platform}")
         logger.info("Selected platform: %s", platform_selection.platform)
+        if platform_selection.platform != "test":
+            print_message(
+                f"Collection window: {platform_selection.log_hours} hours, max {platform_selection.max_events} events/lines"
+            )
+        logger.info(
+            "Collection window resolved: platform=%s mode=%s log_hours=%s max_events=%s",
+            platform_selection.platform,
+            platform_selection.analysis_mode,
+            platform_selection.log_hours,
+            platform_selection.max_events,
+        )
 
         logger.info("Environment checks starting")
         print_message("Environment checks started.")

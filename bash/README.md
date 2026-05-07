@@ -23,6 +23,15 @@ Production mode uses the host's available Linux sources and writes evidence to:
 - `logs/linux_audit.log`
 - `logs/anomalies.log`
 
+You can bound the auth-log collection window when running production mode:
+
+```bash
+bash/linux_identity_audit.sh --mode production --log-hours 12 --max-events 500
+```
+
+The script uses safe defaults of 24 hours and 1000 lines or events when these
+options are not provided.
+
 ### Test
 
 ```bash
@@ -31,6 +40,9 @@ bash/linux_identity_audit.sh --mode test
 
 Test mode uses the approved mock data under `tests/mockdata/` and keeps the
 real system logs untouched.
+
+If older Linux logs are needed, export them manually and place them in
+`data/incoming/` or `logdata/linux/`.
 
 ## Permission Limits
 

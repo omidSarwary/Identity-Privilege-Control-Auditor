@@ -39,12 +39,20 @@ def _verify_outputs(expected_outputs: dict[str, Path]) -> list[str]:
     return missing_outputs
 
 
-def collect_windows_data(mode: str = "production", timeout: float | None = 300.0) -> dict[str, Any]:
+def collect_windows_data(
+    mode: str = "production",
+    *,
+    log_hours: int = 24,
+    max_events: int = 1000,
+    timeout: float | None = 300.0,
+) -> dict[str, Any]:
     """Run the Windows PowerShell sensor and validate its expected outputs.
 
-    Expects a mode string and returns a structured status dictionary. The
-    function chooses ``pwsh`` when available and falls back to Windows
-    PowerShell otherwise.
+    Expects a mode string plus bounded log-window settings and returns a
+    structured status dictionary. The function chooses ``pwsh`` when available
+    and falls back to Windows PowerShell otherwise. The extra limits keep the
+    Security-log collection bounded so the orchestrator can fail safely instead
+    of waiting for an unbounded scan.
     """
     selected_mode = _normalized_mode(mode)
     executable = _resolve_powershell_executable()
@@ -68,8 +76,18 @@ def collect_windows_data(mode: str = "production", timeout: float | None = 300.0
         str(WINDOWS_SENSOR_SCRIPT),
         "-Mode",
         selected_mode,
+        "-LogHours",
+        str(log_hours),
+        "-MaxEvents",
+        str(max_events),
     ]
-    LOGGER.info("Starting Windows collector in %s mode using %s", selected_mode, executable)
+    LOGGER.info(
+        "Starting Windows collector in %s mode using %s (log_hours=%s max_events=%s)",
+        selected_mode,
+        executable,
+        log_hours,
+        max_events,
+    )
     command_result = run_command(command, cwd=PROJECT_ROOT, timeout=timeout)
 
     missing_outputs = _verify_outputs(EXPECTED_OUTPUTS)

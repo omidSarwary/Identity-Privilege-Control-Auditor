@@ -70,7 +70,7 @@ def test_linux_production_mode_shows_manual_windows_guidance_and_generates_repor
     monkeypatch.setattr(
         app,
         "collect_linux_data",
-        lambda mode: {
+        lambda mode, **kwargs: {
             "platform": "linux",
             "mode": mode,
             "success": True,
@@ -82,12 +82,12 @@ def test_linux_production_mode_shows_manual_windows_guidance_and_generates_repor
     monkeypatch.setattr(
         app,
         "collect_windows_data",
-        lambda mode: (_ for _ in ()).throw(AssertionError("windows collector should not run for linux production mode")),
+        lambda mode, **kwargs: (_ for _ in ()).throw(AssertionError("windows collector should not run for linux production mode")),
     )
     monkeypatch.setattr(
         app,
         "collect_fallback_data",
-        lambda mode: (_ for _ in ()).throw(AssertionError("fallback should not run when Linux collector succeeds")),
+        lambda mode, **kwargs: (_ for _ in ()).throw(AssertionError("fallback should not run when Linux collector succeeds")),
     )
     monkeypatch.setattr(app, "run_identity_risk_engine", lambda mode, data_paths, run_id: _analysis_result(run_id, mode))
     monkeypatch.setattr(app, "write_reports", lambda analysis_result: write_reports(analysis_result, output_root=tmp_path))
@@ -116,12 +116,12 @@ def test_windows_production_mode_shows_manual_linux_guidance_and_safe_exits(monk
     monkeypatch.setattr(
         app,
         "collect_linux_data",
-        lambda mode: (_ for _ in ()).throw(AssertionError("linux collector should not run for windows production mode")),
+        lambda mode, **kwargs: (_ for _ in ()).throw(AssertionError("linux collector should not run for windows production mode")),
     )
     monkeypatch.setattr(
         app,
         "collect_windows_data",
-        lambda mode: {
+        lambda mode, **kwargs: {
             "platform": "windows",
             "mode": mode,
             "success": False,
@@ -133,7 +133,7 @@ def test_windows_production_mode_shows_manual_linux_guidance_and_safe_exits(monk
     monkeypatch.setattr(
         app,
         "collect_fallback_data",
-        lambda mode: {
+        lambda mode, **kwargs: {
             "mode": mode,
             "fallback_activated": True,
             "fallback_reason": "no usable data",

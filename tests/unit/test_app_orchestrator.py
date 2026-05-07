@@ -52,11 +52,28 @@ def _mock_report_paths() -> dict[str, Path]:
 
 def test_parse_args_supports_orchestrator_flags() -> None:
     """The CLI should expose the documented orchestration flags."""
-    args = app.parse_args(["--test", "--no-bootstrap", "--mode", "test"])
+    args = app.parse_args([
+        "--test",
+        "--no-bootstrap",
+        "--mode",
+        "test",
+        "--windows-log-hours",
+        "12",
+        "--windows-max-events",
+        "500",
+        "--linux-log-hours",
+        "6",
+        "--linux-max-events",
+        "250",
+    ])
 
     assert args.test is True
     assert args.no_bootstrap is True
     assert args.mode == "test"
+    assert args.windows_log_hours == "12"
+    assert args.windows_max_events == "500"
+    assert args.linux_log_hours == "6"
+    assert args.linux_max_events == "250"
 
 
 def test_main_skips_platform_collectors_in_test_mode(monkeypatch) -> None:
@@ -66,12 +83,12 @@ def test_main_skips_platform_collectors_in_test_mode(monkeypatch) -> None:
     monkeypatch.setattr(
         app,
         "collect_linux_data",
-        lambda mode: (_ for _ in ()).throw(AssertionError("linux collector should not run in test mode")),
+        lambda mode, **kwargs: (_ for _ in ()).throw(AssertionError("linux collector should not run in test mode")),
     )
     monkeypatch.setattr(
         app,
         "collect_windows_data",
-        lambda mode: (_ for _ in ()).throw(AssertionError("windows collector should not run in test mode")),
+        lambda mode, **kwargs: (_ for _ in ()).throw(AssertionError("windows collector should not run in test mode")),
     )
     monkeypatch.setattr(
         app,
@@ -99,12 +116,12 @@ def test_main_skips_platform_collectors_in_mode_test(monkeypatch) -> None:
     monkeypatch.setattr(
         app,
         "collect_linux_data",
-        lambda mode: (_ for _ in ()).throw(AssertionError("linux collector should not run in test mode")),
+        lambda mode, **kwargs: (_ for _ in ()).throw(AssertionError("linux collector should not run in test mode")),
     )
     monkeypatch.setattr(
         app,
         "collect_windows_data",
-        lambda mode: (_ for _ in ()).throw(AssertionError("windows collector should not run in test mode")),
+        lambda mode, **kwargs: (_ for _ in ()).throw(AssertionError("windows collector should not run in test mode")),
     )
     monkeypatch.setattr(
         app,
@@ -127,13 +144,13 @@ def test_main_skips_platform_collectors_in_mode_test(monkeypatch) -> None:
 
 def test_main_runs_linux_collector_for_linux_selection(monkeypatch) -> None:
     """A Linux selection should route through the Linux collector only."""
-    calls: list[str] = []
+    calls: list[tuple[str, dict[str, object]]] = []
     monkeypatch.setattr(app, "load_app_config", lambda: {"project_name": "NordSec", "version": "0.2.0", "default_mode": "linux"})
     monkeypatch.setattr(app, "bootstrap_project", lambda perform_full_checks=True: _bootstrap_status())
     monkeypatch.setattr(
         app,
         "collect_linux_data",
-        lambda mode: calls.append(f"linux:{mode}") or {
+        lambda mode, **kwargs: calls.append((mode, dict(kwargs))) or {
             "platform": "linux",
             "mode": mode,
             "success": True,
@@ -145,7 +162,7 @@ def test_main_runs_linux_collector_for_linux_selection(monkeypatch) -> None:
     monkeypatch.setattr(
         app,
         "collect_windows_data",
-        lambda mode: (_ for _ in ()).throw(AssertionError("windows collector should not run for linux selection")),
+        lambda mode, **kwargs: (_ for _ in ()).throw(AssertionError("windows collector should not run for linux selection")),
     )
     monkeypatch.setattr(app, "collect_fallback_data", lambda mode: (_ for _ in ()).throw(AssertionError("fallback should not run when linux collector succeeds")))
     monkeypatch.setattr(app, "run_identity_risk_engine", lambda mode, data_paths, run_id: _mock_analysis_result(run_id, mode))
@@ -155,23 +172,67 @@ def test_main_runs_linux_collector_for_linux_selection(monkeypatch) -> None:
     exit_code = app.main(["--mode", "linux", "--no-bootstrap"], input_func=lambda _: "linux")
 
     assert exit_code == 0
-    assert calls == ["linux:production"]
+    assert calls[0][0] == "production"
+    assert calls[0][1]["log_hours"] == 24
+    assert calls[0][1]["max_events"] == 1000
+
+
+def test_main_passes_linux_collection_window_arguments(monkeypatch) -> None:
+    """CLI collection-window values should be forwarded to the Linux collector."""
+    calls: list[tuple[str, dict[str, object]]] = []
+    monkeypatch.setattr(app, "load_app_config", lambda: {"project_name": "NordSec", "version": "0.2.0", "default_mode": "linux"})
+    monkeypatch.setattr(app, "bootstrap_project", lambda perform_full_checks=True: _bootstrap_status())
+    monkeypatch.setattr(
+        app,
+        "collect_linux_data",
+        lambda mode, **kwargs: calls.append((mode, dict(kwargs))) or {
+            "platform": "linux",
+            "mode": mode,
+            "success": True,
+            "missing_outputs": [],
+            "expected_outputs": {"linux_identity": "data/collected/linux_identity.json"},
+            "command": {"returncode": 0},
+        },
+    )
+    monkeypatch.setattr(
+        app,
+        "collect_windows_data",
+        lambda mode, **kwargs: (_ for _ in ()).throw(AssertionError("windows collector should not run for linux selection")),
+    )
+    monkeypatch.setattr(app, "collect_fallback_data", lambda mode: (_ for _ in ()).throw(AssertionError("fallback should not run when linux collector succeeds")))
+    monkeypatch.setattr(app, "run_identity_risk_engine", lambda mode, data_paths, run_id: _mock_analysis_result(run_id, mode))
+    monkeypatch.setattr(app, "write_reports", lambda analysis_result: _mock_report_paths())
+    monkeypatch.setattr(app, "print_message", lambda message: None)
+
+    exit_code = app.main([
+        "--mode",
+        "linux",
+        "--linux-log-hours",
+        "12",
+        "--linux-max-events",
+        "500",
+        "--no-bootstrap",
+    ], input_func=lambda _: "linux")
+
+    assert exit_code == 0
+    assert calls[0][1]["log_hours"] == 12
+    assert calls[0][1]["max_events"] == 500
 
 
 def test_main_routes_windows_selection_to_windows_collector(monkeypatch) -> None:
     """A Windows selection should route through the Windows collector only."""
-    calls: list[str] = []
+    calls: list[tuple[str, dict[str, object]]] = []
     monkeypatch.setattr(app, "load_app_config", lambda: {"project_name": "NordSec", "version": "0.2.0", "default_mode": "windows"})
     monkeypatch.setattr(app, "bootstrap_project", lambda perform_full_checks=True: _bootstrap_status())
     monkeypatch.setattr(
         app,
         "collect_linux_data",
-        lambda mode: (_ for _ in ()).throw(AssertionError("linux collector should not run for windows selection")),
+        lambda mode, **kwargs: (_ for _ in ()).throw(AssertionError("linux collector should not run for windows selection")),
     )
     monkeypatch.setattr(
         app,
         "collect_windows_data",
-        lambda mode: calls.append(f"windows:{mode}") or {
+        lambda mode, **kwargs: calls.append((mode, dict(kwargs))) or {
             "platform": "windows",
             "mode": mode,
             "success": True,
@@ -188,7 +249,51 @@ def test_main_routes_windows_selection_to_windows_collector(monkeypatch) -> None
     exit_code = app.main(["--mode", "windows", "--no-bootstrap"], input_func=lambda _: "windows")
 
     assert exit_code == 0
-    assert calls == ["windows:production"]
+    assert calls[0][0] == "production"
+    assert calls[0][1]["log_hours"] == 24
+    assert calls[0][1]["max_events"] == 1000
+
+
+def test_main_passes_windows_collection_window_arguments(monkeypatch) -> None:
+    """CLI collection-window values should be forwarded to the Windows collector."""
+    calls: list[tuple[str, dict[str, object]]] = []
+    monkeypatch.setattr(app, "load_app_config", lambda: {"project_name": "NordSec", "version": "0.2.0", "default_mode": "windows"})
+    monkeypatch.setattr(app, "bootstrap_project", lambda perform_full_checks=True: _bootstrap_status())
+    monkeypatch.setattr(
+        app,
+        "collect_linux_data",
+        lambda mode, **kwargs: (_ for _ in ()).throw(AssertionError("linux collector should not run for windows selection")),
+    )
+    monkeypatch.setattr(
+        app,
+        "collect_windows_data",
+        lambda mode, **kwargs: calls.append((mode, dict(kwargs))) or {
+            "platform": "windows",
+            "mode": mode,
+            "success": True,
+            "missing_outputs": [],
+            "expected_outputs": {"windows_identity": "data/collected/windows_identity.csv"},
+            "command": {"returncode": 0},
+        },
+    )
+    monkeypatch.setattr(app, "collect_fallback_data", lambda mode: (_ for _ in ()).throw(AssertionError("fallback should not run when windows collector succeeds")))
+    monkeypatch.setattr(app, "run_identity_risk_engine", lambda mode, data_paths, run_id: _mock_analysis_result(run_id, mode))
+    monkeypatch.setattr(app, "write_reports", lambda analysis_result: _mock_report_paths())
+    monkeypatch.setattr(app, "print_message", lambda message: None)
+
+    exit_code = app.main([
+        "--mode",
+        "windows",
+        "--windows-log-hours",
+        "12",
+        "--windows-max-events",
+        "500",
+        "--no-bootstrap",
+    ], input_func=lambda _: "windows")
+
+    assert exit_code == 0
+    assert calls[0][1]["log_hours"] == 12
+    assert calls[0][1]["max_events"] == 500
 
 
 def test_main_safe_exits_when_no_data_exists(monkeypatch) -> None:
@@ -198,12 +303,12 @@ def test_main_safe_exits_when_no_data_exists(monkeypatch) -> None:
     monkeypatch.setattr(
         app,
         "collect_linux_data",
-        lambda mode: (_ for _ in ()).throw(AssertionError("linux collector should not run in test mode")),
+        lambda mode, **kwargs: (_ for _ in ()).throw(AssertionError("linux collector should not run in test mode")),
     )
     monkeypatch.setattr(
         app,
         "collect_windows_data",
-        lambda mode: (_ for _ in ()).throw(AssertionError("windows collector should not run in test mode")),
+        lambda mode, **kwargs: (_ for _ in ()).throw(AssertionError("windows collector should not run in test mode")),
     )
     monkeypatch.setattr(
         app,
@@ -229,8 +334,8 @@ def test_main_passes_fallback_metadata_to_report_writer(monkeypatch) -> None:
     captured: dict[str, object] = {}
     monkeypatch.setattr(app, "load_app_config", lambda: {"project_name": "NordSec", "version": "0.2.0", "default_mode": "test"})
     monkeypatch.setattr(app, "bootstrap_project", lambda perform_full_checks=True: _bootstrap_status())
-    monkeypatch.setattr(app, "collect_linux_data", lambda mode: (_ for _ in ()).throw(AssertionError("linux collector should not run in test mode")))
-    monkeypatch.setattr(app, "collect_windows_data", lambda mode: (_ for _ in ()).throw(AssertionError("windows collector should not run in test mode")))
+    monkeypatch.setattr(app, "collect_linux_data", lambda mode, **kwargs: (_ for _ in ()).throw(AssertionError("linux collector should not run in test mode")))
+    monkeypatch.setattr(app, "collect_windows_data", lambda mode, **kwargs: (_ for _ in ()).throw(AssertionError("windows collector should not run in test mode")))
     monkeypatch.setattr(
         app,
         "collect_fallback_data",

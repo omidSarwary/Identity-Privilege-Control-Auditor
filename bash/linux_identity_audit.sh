@@ -22,6 +22,10 @@ ANOMALY_LOG_FILE="${LOGS_DIR}/anomalies.log"
 
 MODE="production"
 EXIT_CODE=0
+LOG_HOURS=24
+MAX_EVENTS=1000
+MAX_LOG_HOURS=720
+MAX_MAX_EVENTS=10000
 HOST_NAME="$(hostname 2>/dev/null || printf 'unknown')"
 COLLECTION_TIME="$(date -u +"%Y-%m-%dT%H:%M:%SZ")"
 
@@ -30,6 +34,7 @@ SUDO_USERS_JSON="[]"
 AUTH_EVENTS_JSON="[]"
 SSH_POLICY_JSON='{"permit_root_login":"unknown","password_authentication":"unknown","pubkey_authentication":"unknown"}'
 FILE_PERMISSIONS_JSON='{"files":[]}'
+AUTH_LOG_SOURCE=""
 
 command_exists() {
   command -v "$1" >/dev/null 2>&1
@@ -71,7 +76,7 @@ parse_args() {
     case "$1" in
       --mode)
         shift
-        if [[ $# -eq 0 ]]; then
+        if [[ $# -eq 0 || "$1" == -* ]]; then
           log "ERROR" "Missing value for --mode"
           safe_exit 4 "Invalid mode"
         fi
@@ -80,8 +85,30 @@ parse_args() {
       --mode=*)
         MODE="${1#*=}"
         ;;
+      --log-hours)
+        shift
+        if [[ $# -eq 0 || "$1" == -* ]]; then
+          log "WARNING" "Missing value for --log-hours; using default $LOG_HOURS"
+          continue
+        fi
+        LOG_HOURS="$1"
+        ;;
+      --log-hours=*)
+        LOG_HOURS="${1#*=}"
+        ;;
+      --max-events)
+        shift
+        if [[ $# -eq 0 || "$1" == -* ]]; then
+          log "WARNING" "Missing value for --max-events; using default $MAX_EVENTS"
+          continue
+        fi
+        MAX_EVENTS="$1"
+        ;;
+      --max-events=*)
+        MAX_EVENTS="${1#*=}"
+        ;;
       -h|--help)
-        printf '%s\n' "Usage: bash/linux_identity_audit.sh [--mode production|test]"
+        printf '%s\n' "Usage: bash/linux_identity_audit.sh [--mode production|test] [--log-hours N] [--max-events N]"
         exit 0
         ;;
       *)
@@ -102,8 +129,34 @@ parse_args() {
   esac
 }
 
+resolve_positive_int() {
+  local raw_value="$1"
+  local default_value="$2"
+  local upper_bound="$3"
+  local label="$4"
+  local resolved_value="$default_value"
+
+  if [[ -z "${raw_value}" ]]; then
+    printf '%s\n' "$resolved_value"
+    return 0
+  fi
+
+  if [[ "$raw_value" =~ ^[0-9]+$ ]] && [[ "$raw_value" -gt 0 ]]; then
+    resolved_value="$raw_value"
+    if [[ "$resolved_value" -gt "$upper_bound" ]]; then
+      log "WARNING" "$label '$raw_value' exceeds the maximum $upper_bound; clamping to $upper_bound"
+      resolved_value="$upper_bound"
+    fi
+  else
+    log "WARNING" "$label '$raw_value' is invalid; using default $default_value"
+    resolved_value="$default_value"
+  fi
+
+  printf '%s\n' "$resolved_value"
+}
+
 check_dependencies() {
-  local required_commands=(python3 tee hostname getent)
+  local required_commands=(python3 tee hostname getent tail)
   local optional_commands=(passwd lastlog)
   local command_name
 
@@ -285,8 +338,86 @@ PY
   return 1
 }
 
+collect_auth_events_from_file() {
+  local source_label="$1"
+  local source_path="$2"
+  local bounded_file="${TMPDIR:-/tmp}/nordsec_linux_auth_${$}_$RANDOM.log"
+  local output_file="${TMPDIR:-/tmp}/nordsec_linux_auth_events_${$}_$RANDOM.json"
+
+  if ! tail -n "$MAX_EVENTS" "$source_path" > "$bounded_file"; then
+    rm -f "$bounded_file" 2>/dev/null || true
+    rm -f "$output_file" 2>/dev/null || true
+    log "WARNING" "Unable to read auth log source: $source_path"
+    return 1
+  fi
+
+  if collected_count="$(
+    python3 - "$bounded_file" "$source_label" "$output_file" <<'PY'
+import json
+import pathlib
+import re
+import sys
+
+path = pathlib.Path(sys.argv[1])
+source = sys.argv[2]
+output = pathlib.Path(sys.argv[3])
+failed_pattern = re.compile(
+    r"^(?P<timestamp>[A-Z][a-z]{2}\s+\d+\s+\d{2}:\d{2}:\d{2}).*sshd.*Failed password for "
+    r"(?:(?:invalid user )?)(?P<user>\S+) from (?P<ip>\S+)"
+)
+accepted_pattern = re.compile(
+    r"^(?P<timestamp>[A-Z][a-z]{2}\s+\d+\s+\d{2}:\d{2}:\d{2}).*sshd.*Accepted \S+ for "
+    r"(?P<user>\S+) from (?P<ip>\S+)"
+)
+
+events = []
+for line in path.read_text(encoding="utf-8", errors="replace").splitlines():
+    normalized_line = line.strip()
+    if not normalized_line:
+        continue
+
+    match = failed_pattern.match(normalized_line)
+    event_type = "failed_login"
+    if not match:
+        match = accepted_pattern.match(normalized_line)
+        event_type = "successful_login"
+
+    if not match:
+        continue
+
+    events.append(
+        {
+            "username": match.group("user"),
+            "event_type": event_type,
+            "count": 1,
+            "timestamp": match.group("timestamp"),
+            "source": source,
+            "ip_address": match.group("ip"),
+        }
+    )
+
+output.write_text(json.dumps(events, ensure_ascii=False), encoding="utf-8")
+print(len(events))
+PY
+  )"; then
+    if ! AUTH_EVENTS_JSON="$(cat "$output_file")"; then
+      AUTH_EVENTS_JSON='[]'
+    fi
+    log "INFO" "Collected $collected_count Linux auth events from $source_label using the last $MAX_EVENTS lines."
+    rm -f "$bounded_file" 2>/dev/null || true
+    rm -f "$output_file" 2>/dev/null || true
+    return 0
+  fi
+
+  rm -f "$bounded_file" 2>/dev/null || true
+  rm -f "$output_file" 2>/dev/null || true
+  log "WARNING" "Failed to parse auth log source: $source_path"
+  return 1
+}
+
 collect_auth_events() {
   log "INFO" "Collecting auth-related events"
+  log "INFO" "Linux auth collection window: log_hours=$LOG_HOURS max_events=$MAX_EVENTS"
 
   if [[ "$MODE" == "test" ]]; then
     if AUTH_EVENTS_JSON="$(
@@ -329,6 +460,21 @@ PY
     return 1
   fi
 
+  local journal_source=""
+  if command_exists journalctl; then
+    journal_source="${TMPDIR:-/tmp}/nordsec_linux_journal_${$}_$RANDOM.log"
+    if journalctl --since "${LOG_HOURS} hours ago" --no-pager -n "$MAX_EVENTS" -o short > "$journal_source" 2>/dev/null; then
+      AUTH_LOG_SOURCE="journalctl"
+      if collect_auth_events_from_file "journalctl" "$journal_source"; then
+        rm -f "$journal_source" 2>/dev/null || true
+        return 0
+      fi
+    else
+      log "WARNING" "journalctl could not be queried; falling back to file-based auth logs."
+    fi
+    rm -f "$journal_source" 2>/dev/null || true
+  fi
+
   local log_source=""
   if [[ -r "/var/log/auth.log" ]]; then
     log_source="/var/log/auth.log"
@@ -342,39 +488,8 @@ PY
     return 2
   fi
 
-  if AUTH_EVENTS_JSON="$(
-    python3 - "$log_source" <<'PY'
-import json
-import pathlib
-import re
-import sys
-
-path = pathlib.Path(sys.argv[1])
-pattern = re.compile(
-    r"^(?P<timestamp>[A-Z][a-z]{2}\s+\d+\s+\d{2}:\d{2}:\d{2})\s+"
-    r"(?P<host>\S+)\s+sshd\[\d+\]:\s+Failed password for "
-    r"(?:(?:invalid user )?)(?P<user>\S+)\s+from\s+(?P<ip>\S+)"
-)
-
-events = []
-for line in path.read_text(encoding="utf-8", errors="replace").splitlines():
-    match = pattern.match(line.strip())
-    if not match:
-        continue
-    events.append(
-        {
-            "username": match.group("user"),
-            "event_type": "failed_login",
-            "count": 1,
-            "timestamp": match.group("timestamp"),
-            "source": str(path),
-            "ip_address": match.group("ip"),
-        }
-    )
-
-print(json.dumps(events, ensure_ascii=False))
-PY
-  )"; then
+  AUTH_LOG_SOURCE="$log_source"
+  if collect_auth_events_from_file "$log_source" "$log_source"; then
     return 0
   fi
 
@@ -628,6 +743,10 @@ PY
 main() {
   parse_args "$@"
   init_paths
+
+  LOG_HOURS="$(resolve_positive_int "$LOG_HOURS" 24 720 "Linux log hours")"
+  MAX_EVENTS="$(resolve_positive_int "$MAX_EVENTS" 1000 10000 "Linux max events")"
+  log "INFO" "Linux collection window resolved: log_hours=$LOG_HOURS max_events=$MAX_EVENTS"
 
   if ! check_dependencies; then
     safe_exit 1 "Dependency check failed"

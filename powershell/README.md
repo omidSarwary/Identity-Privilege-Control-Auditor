@@ -25,6 +25,16 @@ host and writes output to:
 - `logs/windows_audit.log`
 - `logs/anomalies.log`
 
+You can bound the Security-log collection window when running production
+mode:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File powershell/windows_identity_audit.ps1 -Mode Production -LogHours 12 -MaxEvents 500
+```
+
+The script uses safe defaults of 24 hours and 1000 events when these options
+are not provided.
+
 ### Test
 
 ```powershell
@@ -33,6 +43,9 @@ powershell -ExecutionPolicy Bypass -File powershell/windows_identity_audit.ps1 -
 
 Test mode uses the approved mock data in `tests/mockdata/` and does not touch
 real Event Viewer logs.
+
+If older Windows logs are needed, export them manually and place them in
+`data/incoming/` or `logdata/windows/`.
 
 ## Permission Limits
 

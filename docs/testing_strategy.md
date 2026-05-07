@@ -39,6 +39,12 @@ The Bash and PowerShell sensors can also be tested on their own:
 - `bash bash/linux_identity_audit.sh --mode test`
 - `powershell -NoProfile -ExecutionPolicy Bypass -File powershell/windows_identity_audit.ps1 -Mode Test`
 
+In production-style manual checks, the sensors can be bounded explicitly to
+avoid scanning large logs in one run:
+
+- `bash bash/linux_identity_audit.sh --mode production --log-hours 12 --max-events 500`
+- `powershell -NoProfile -ExecutionPolicy Bypass -File powershell/windows_identity_audit.ps1 -Mode Production -LogHours 12 -MaxEvents 500`
+
 These sensor runs may write most of their evidence to `data/collected/` and
 `logs/`, so the terminal output can be short. Successful runs should be
 confirmed by exit code `0` and by validating the generated output files.
