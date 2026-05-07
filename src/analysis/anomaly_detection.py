@@ -31,6 +31,7 @@ RISK_SCORE_BY_LEVEL = {
     RiskLevel.MEDIUM.value: 40,
     RiskLevel.LOW.value: 10,
 }
+SYSTEM_POLICY_IDENTITY = "system_policy"
 
 
 def _as_username_set(values: Sequence[Any] | None) -> set[str]:
@@ -83,6 +84,19 @@ def _copy_record(identity: Mapping[str, Any]) -> dict[str, Any]:
     return dict(identity)
 
 
+def _collect_all_events(normalized_identities: Sequence[Mapping[str, Any]] | None) -> list[dict[str, Any]]:
+    """Flatten all attached events so global event rules can run only once.
+
+    Several rules operate on the event stream as a whole, not on one identity
+    in isolation. Collecting the events up front prevents the same platform
+    finding from being emitted once per user record.
+    """
+    events: list[dict[str, Any]] = []
+    for identity in normalized_identities or []:
+        events.extend(list(identity.get("events", [])))
+    return events
+
+
 def detect_anomalies(
     normalized_identities: Sequence[Mapping[str, Any]] | None,
     *,
@@ -108,6 +122,91 @@ def detect_anomalies(
     expected_ssh_policy = (expected_policy_baseline or {}).get("ssh_policy", {})
     expected_windows_policy = expected_policy_baseline or {}
     linux_policy_map = (linux_policy or {}).get("policy", linux_policy or {})
+    all_events = _collect_all_events(normalized_identities)
+    any_privileged_activity = any(
+        "local_admin" in {str(item).lower() for item in (identity.get("privileges") or [])}
+        or "sudo" in {str(item).lower() for item in (identity.get("privileges") or [])}
+        for identity in normalized_identities or []
+    )
+
+    # These findings describe the platform or policy state for the entire run,
+    # so they are computed once and tagged as system-level rather than being
+    # attached to every user record.
+    system_findings: list[dict[str, str]] = []
+
+    if linux_policy_map:
+        ssh_root_finding = ssh_root_login_with_privileged_activity(
+            linux_policy_map,
+            privileged_activity_observed=any_privileged_activity,
+            source="linux_policy.json",
+        )
+        if ssh_root_finding:
+            ssh_root_finding["identity"] = SYSTEM_POLICY_IDENTITY
+            system_findings.append(ssh_root_finding)
+
+        ssh_finding = weak_ssh_policy(linux_policy_map, source="linux_policy.json")
+        if ssh_finding:
+            ssh_finding["identity"] = SYSTEM_POLICY_IDENTITY
+            system_findings.append(ssh_finding)
+
+    if windows_policy_rows:
+        firewall_finding = windows_firewall_disabled(windows_policy_rows, source="windows_policy.csv")
+        if firewall_finding:
+            firewall_finding["identity"] = SYSTEM_POLICY_IDENTITY
+            system_findings.append(firewall_finding)
+
+        execution_rows = [
+            row
+            for row in windows_policy_rows
+            if str(row.get("CheckName") or row.get("check_name") or "").lower() == "execution_policy"
+        ]
+        expected_execution = (expected_policy_baseline or {}).get("execution_policy", {}).get("powershell")
+        if execution_rows and expected_execution:
+            observed_execution = str(execution_rows[0].get("Value") or execution_rows[0].get("value") or "").strip().lower()
+            if observed_execution != str(expected_execution).strip().lower():
+                system_findings.append(
+                    policy_deviation(
+                        SYSTEM_POLICY_IDENTITY,
+                        finding="Windows execution policy differs from the approved baseline",
+                        reason="The readable Windows execution policy does not match the approved baseline.",
+                        source="windows_policy.csv",
+                    )
+                )
+
+        # Audit policy is a platform-wide control, so a missing or disabled
+        # setting becomes one system finding rather than one finding per user.
+        audit_policy_rows = [
+            row
+            for row in windows_policy_rows
+            if str(row.get("CheckName") or row.get("check_name") or "").lower() == "audit_policy_enabled"
+        ]
+        if not audit_policy_rows or str(audit_policy_rows[0].get("Status") or "").lower() not in {"true", "enabled", "on"}:
+            audit_finding = missing_audit_policy({"audit_policy": None}, source="windows_policy.csv")
+            audit_finding["identity"] = SYSTEM_POLICY_IDENTITY
+            system_findings.append(audit_finding)
+
+    if expected_windows_policy and not windows_policy_rows:
+        system_findings.append(
+            missing_log_source_but_other_data_exists(
+                source="correlation",
+                reason="Windows policy data was expected but not supplied for scoring.",
+                identity=SYSTEM_POLICY_IDENTITY,
+            )
+        )
+
+    if expected_ssh_policy and not linux_policy:
+        system_findings.append(
+            missing_log_source_but_other_data_exists(
+                source="correlation",
+                reason="Linux SSH policy data was expected but not supplied for scoring.",
+                identity=SYSTEM_POLICY_IDENTITY,
+            )
+        )
+
+    if all_events:
+        ip_finding = multiple_failed_logins_from_same_ip(all_events, source="events")
+        if ip_finding:
+            system_findings.append(ip_finding)
 
     for identity in normalized_identities or []:
         record = identity if isinstance(identity, dict) else _copy_record(identity)
@@ -115,12 +214,11 @@ def detect_anomalies(
         privileges = {str(item).lower() for item in record.get("privileges", [])}
         events = list(record.get("events", []))
         baseline_match = bool(record.get("baseline_match", False))
-        platforms = {str(item).lower() for item in record.get("platforms", [])}
         identity_findings: list[dict[str, str]] = []
 
         # Windows local admin membership is checked against the approved list so
         # that standing privilege only becomes a finding when it is not expected.
-        if not baseline_match and "windows" in platforms and "local_admin" in privileges:
+        if not baseline_match and "local_admin" in privileges:
             finding = unauthorized_windows_admin(
                 {"username": username, "is_local_admin": True},
                 approved_admins=approved_windows,
@@ -132,7 +230,7 @@ def detect_anomalies(
 
         # Linux sudo accounts are validated separately because the approved
         # sudo baseline is a distinct control from Windows admin membership.
-        if not baseline_match and "linux" in platforms and "sudo" in privileges:
+        if not baseline_match and "sudo" in privileges:
             finding = unauthorized_linux_sudo_user(
                 {"username": username, "privileges": ["sudo"]},
                 approved_sudoers=approved_linux,
@@ -199,78 +297,9 @@ def detect_anomalies(
                 finding["identity"] = username
                 identity_findings.append(finding)
 
-        # High-volume failures from one source are correlated separately from
-        # the account record so the report can explain network-level patterns.
-        ip_finding = multiple_failed_logins_from_same_ip(events, source="events")
-        if ip_finding:
-            findings.append(ip_finding)
-
-        if "linux" in platforms and linux_policy_map:
-            ssh_root_finding = ssh_root_login_with_privileged_activity(
-                linux_policy_map,
-                privileged_activity_observed=bool(privileges or events),
-                source="linux_policy.json",
-            )
-            if ssh_root_finding:
-                ssh_root_finding["identity"] = username
-                identity_findings.append(ssh_root_finding)
-
-            ssh_finding = weak_ssh_policy(linux_policy_map, source="linux_policy.json")
-            if ssh_finding:
-                ssh_finding["identity"] = username
-                identity_findings.append(ssh_finding)
-
-        if "windows" in platforms and windows_policy_rows:
-            firewall_finding = windows_firewall_disabled(windows_policy_rows, source="windows_policy.csv")
-            if firewall_finding:
-                firewall_finding["identity"] = username
-                identity_findings.append(firewall_finding)
-
-            execution_rows = [
-                row for row in windows_policy_rows if str(row.get("CheckName") or row.get("check_name") or "").lower() == "execution_policy"
-            ]
-            expected_execution = (expected_policy_baseline or {}).get("execution_policy", {}).get("powershell")
-            if execution_rows and expected_execution:
-                observed_execution = str(execution_rows[0].get("Value") or execution_rows[0].get("value") or "").strip().lower()
-                if observed_execution != str(expected_execution).strip().lower():
-                    execution_finding = policy_deviation(
-                        username,
-                        finding="Windows execution policy differs from the approved baseline",
-                        reason="The readable Windows execution policy does not match the approved baseline.",
-                        source="windows_policy.csv",
-                    )
-                    identity_findings.append(execution_finding)
-
-            # Audit policy absence is treated as a separate control gap so that
-            # the report can distinguish between a missing control and a weak one.
-            audit_policy_rows = [
-                row for row in windows_policy_rows if str(row.get("CheckName") or row.get("check_name") or "").lower() == "audit_policy_enabled"
-            ]
-            if not audit_policy_rows or str(audit_policy_rows[0].get("Status") or "").lower() not in {"true", "enabled", "on"}:
-                audit_finding = missing_audit_policy({"audit_policy": None}, source="windows_policy.csv")
-                audit_finding["identity"] = username
-                identity_findings.append(audit_finding)
-
-        if expected_windows_policy and "windows" in platforms and not windows_policy_rows:
-            identity_findings.append(
-                missing_log_source_but_other_data_exists(
-                    source="correlation",
-                    reason="Windows policy data was expected but not supplied for scoring.",
-                    identity=username,
-                )
-            )
-
-        if expected_ssh_policy and "linux" in platforms and not linux_policy:
-            identity_findings.append(
-                missing_log_source_but_other_data_exists(
-                    source="correlation",
-                    reason="Linux SSH policy data was expected but not supplied for scoring.",
-                    identity=username,
-                )
-            )
-
         findings.extend(identity_findings)
         _apply_risk_summary(record, identity_findings)
 
+    findings.extend(system_findings)
     LOGGER.info("Completed anomaly detection")
     return findings

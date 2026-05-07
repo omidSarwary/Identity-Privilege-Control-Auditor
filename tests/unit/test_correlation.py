@@ -160,11 +160,11 @@ def test_inactive_privileged_account_is_high() -> None:
     assert "inactive account" in inactive_finding["finding"].lower()
 
 
-def test_policy_deviation_is_detected() -> None:
-    """Windows policy deviations should produce a readable anomaly finding.
+def test_windows_firewall_disabled_is_system_level_only() -> None:
+    """Windows Firewall findings should be emitted once for the whole run.
 
-    Policy mismatches must become findings so the report can explain control
-    gaps separately from login activity.
+    This protects against a misleading report where one normal user inherits a
+    platform-wide firewall weakness as if it were a personal account failure.
     """
     inputs = _load_inputs()
     focus_records = [_get_record(inputs["records"], "normal_user")]
@@ -178,13 +178,38 @@ def test_policy_deviation_is_detected() -> None:
         approved_service_accounts=inputs["approved_service_accounts"],
     )
 
-    policy_findings = [finding for finding in findings if finding["identity"] == "normal_user"]
-    assert policy_findings
-    assert any(
-        finding["risk_level"] in {RiskLevel.HIGH.value, RiskLevel.MEDIUM.value}
-        for finding in policy_findings
+    firewall_findings = [finding for finding in findings if "firewall" in finding["finding"].lower()]
+
+    assert len(firewall_findings) == 1
+    assert firewall_findings[0]["identity"] == "system_policy"
+    assert firewall_findings[0]["risk_level"] == RiskLevel.HIGH.value
+    assert not any(
+        finding["identity"] == "normal_user" and finding["risk_level"] == RiskLevel.HIGH.value
+        for finding in findings
     )
-    assert any(
-        "policy" in finding["finding"].lower() or "firewall" in finding["finding"].lower()
-        for finding in policy_findings
+
+
+def test_multiple_failed_logins_from_same_ip_is_not_duplicated() -> None:
+    """Repeated failures from the same IP should appear only once per run.
+
+    The network source is a run-level signal, so it should not be multiplied
+    by the number of identities in the dataset.
+    """
+    inputs = _load_inputs()
+
+    findings = detect_anomalies(
+        inputs["records"],
+        approved_linux_sudoers=inputs["approved_linux_sudoers"],
+        approved_windows_admins=inputs["approved_windows_admins"],
+        approved_service_accounts=inputs["approved_service_accounts"],
     )
+
+    ip_findings = [
+        finding
+        for finding in findings
+        if finding["finding"] == "Multiple failed logins from the same IP address"
+    ]
+
+    assert len(ip_findings) == 1
+    assert ip_findings[0]["identity"] == "10.0.0.25"
+    assert ip_findings[0]["risk_level"] == RiskLevel.HIGH.value
