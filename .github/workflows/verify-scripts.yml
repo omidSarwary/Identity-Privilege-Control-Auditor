@@ -1,0 +1,56 @@
+name: verify-scripts
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.x'
+
+      - name: Verify project structure
+        run: |
+          set -euo pipefail
+          test -f app.py
+          test -f requirements.txt
+          test -f README.md
+          test -f bash/linux_identity_audit.sh
+          test -f powershell/windows_identity_audit.ps1
+          test -d src/core
+          test -d src/collectors
+          test -d src/parsers
+          test -d src/analysis
+          test -d src/reporting
+          test -d src/utils
+          test -d config/baselines
+          test -d data/incoming
+          test -d data/collected
+          test -d data/normalized
+          test -d data/alerts
+          test -d logdata/linux
+          test -d logdata/windows
+          test -d logs/archive
+          test -d reports/evidence/screenshots
+          test -d reports/evidence/run_outputs
+          test -d reports/evidence/sample_logs
+          test -d tests/unit
+          test -d tests/integration
+          test -d tests/mockdata
+          test -d docs
+
+      - name: Check Bash syntax
+        run: bash -n bash/linux_identity_audit.sh
+
+      - name: Compile Python sources
+        run: |
+          python -m py_compile app.py
+          python -m compileall src

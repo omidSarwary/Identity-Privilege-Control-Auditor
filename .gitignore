@@ -1,0 +1,25 @@
+.venv/
+__pycache__/
+*.pyc
+logs/*.log
+logs/archive/*
+!logs/archive/.gitkeep
+reports/evidence/*
+!reports/evidence/screenshots/
+!reports/evidence/run_outputs/
+!reports/evidence/sample_logs/
+reports/evidence/screenshots/*
+!reports/evidence/screenshots/.gitkeep
+reports/evidence/run_outputs/*
+!reports/evidence/run_outputs/.gitkeep
+reports/evidence/sample_logs/*
+!reports/evidence/sample_logs/.gitkeep
+data/collected/*
+!data/collected/.gitkeep
+data/normalized/*
+!data/normalized/.gitkeep
+data/alerts/*
+!data/alerts/.gitkeep
+project.md
+phased plan.md
+Final-Project.txt

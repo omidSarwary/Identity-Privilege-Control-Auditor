@@ -1,0 +1,1 @@
+"""Text report generation helpers."""

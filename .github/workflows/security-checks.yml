@@ -1,0 +1,20 @@
+name: security-checks
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  checks:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Check for placeholder safety markers
+        run: |
+          set -euo pipefail
+          test -f .gitignore
+          test -f bash/linux_identity_audit.sh
+          test -f powershell/windows_identity_audit.ps1
