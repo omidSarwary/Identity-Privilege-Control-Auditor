@@ -33,6 +33,34 @@ def test_load_csv_file_valid(tmp_path) -> None:
     ]
 
 
+def test_load_csv_file_normalizes_windows_header_bom_and_quotes(tmp_path) -> None:
+    """Windows CSV exports should still validate when the first header is BOM-quoted.
+
+    PowerShell exports can place a UTF-8 BOM on the first column and wrap that
+    header in quotes, so the loader must normalize the header before schema
+    validation and row mapping.
+    """
+    path = tmp_path / "windows.csv"
+    path.write_text(
+        '\ufeff"ComputerName",TimeCreated,EventId,TargetUserName,IpAddress,EventType\n'
+        '"WIN-TEST-01",2026-05-07T06:40:00Z,4625,disabled_user,10.0.0.25,failed_login\n',
+        encoding="utf-8",
+    )
+
+    result = load_csv_file(path, ["ComputerName", "TimeCreated", "EventId", "TargetUserName", "IpAddress", "EventType"])
+
+    assert result == [
+        {
+            "ComputerName": "WIN-TEST-01",
+            "TimeCreated": "2026-05-07T06:40:00Z",
+            "EventId": "4625",
+            "TargetUserName": "disabled_user",
+            "IpAddress": "10.0.0.25",
+            "EventType": "failed_login",
+        }
+    ]
+
+
 def test_load_csv_file_missing_required_column(tmp_path) -> None:
     """Missing headers should raise a controlled format exception.
 

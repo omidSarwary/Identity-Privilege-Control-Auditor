@@ -13,6 +13,19 @@ from src.parsers._common import EmptyFileError, FileMissingError, InvalidFormatE
 LOGGER = logging.getLogger("nordsec.ipca.parsers.csv_loader")
 
 
+def _normalize_header_name(value: str) -> str:
+    """Return a clean CSV header name for validation and row keys.
+
+    The loader accepts UTF-8 BOM-prefixed headers and harmless surrounding
+    double quotes so Windows-authored exports can be consumed safely without
+    changing the underlying schema.
+    """
+    cleaned = value.replace("\ufeff", "").strip()
+    if len(cleaned) >= 2 and cleaned.startswith('"') and cleaned.endswith('"'):
+        cleaned = cleaned[1:-1].strip()
+    return cleaned
+
+
 def load_csv_file(path: Path, required_columns: list[str]) -> list[dict]:
     """Load a CSV file and return its rows as dictionaries.
 
@@ -22,13 +35,19 @@ def load_csv_file(path: Path, required_columns: list[str]) -> list[dict]:
     correlation and baseline matching.
     """
     try:
-        content = read_text_file(path)
+        content = read_text_file(path, encoding="utf-8-sig")
     except (FileMissingError, EmptyFileError):
         LOGGER.error("Unable to load CSV file: %s", path)
         raise
 
-    reader = csv.DictReader(io.StringIO(content))
-    fieldnames = reader.fieldnames or []
+    reader = csv.reader(io.StringIO(content))
+    try:
+        raw_fieldnames = next(reader)
+    except StopIteration as exc:
+        LOGGER.error("CSV file contains no header row: %s", path)
+        raise EmptyFileError(f"CSV file contains no header row: {path}") from exc
+
+    fieldnames = [_normalize_header_name(fieldname) for fieldname in raw_fieldnames]
     missing_columns = [column for column in required_columns if column not in fieldnames]
     if missing_columns:
         LOGGER.error("CSV file missing required columns %s: %s", missing_columns, path)
@@ -36,9 +55,17 @@ def load_csv_file(path: Path, required_columns: list[str]) -> list[dict]:
             f"CSV file missing required columns {missing_columns}: {path}"
         )
 
-    # Keep only rows with at least one meaningful cell so blank lines do not
-    # become empty records later in the analysis pipeline.
-    rows = [row for row in reader if any(value is not None and str(value).strip() for value in row.values())]
+    rows = []
+    for raw_row in reader:
+        if not raw_row or not any(str(value).strip() for value in raw_row):
+            continue
+
+        normalized_row = {
+            fieldname: (raw_row[index] if index < len(raw_row) else "")
+            for index, fieldname in enumerate(fieldnames)
+        }
+        rows.append(normalized_row)
+
     if not rows:
         LOGGER.error("CSV file contains no data rows: %s", path)
         raise EmptyFileError(f"CSV file contains no data rows: {path}")
