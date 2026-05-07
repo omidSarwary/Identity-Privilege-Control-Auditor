@@ -1,44 +1,40 @@
 # CI/CD
 
-This project uses a small set of GitHub Actions workflows to keep the
-application predictable and safe to maintain.
+This project uses GitHub Actions to validate structure, syntax, tests, and a
+small set of security guardrails.
 
-## Workflows
+## `verify-scripts.yml`
 
-### `verify-scripts.yml`
-
-This workflow checks that the repository layout matches the expected project
-structure and that the main scripts still parse cleanly.
+This workflow checks the repository layout and script syntax.
 
 It verifies:
-- key project files and directories exist
-- Python sources compile with `py_compile`
+- required project files and folders exist
+- Python files compile with `py_compile`
 - the Bash sensor parses with `bash -n`
 - the PowerShell sensor can be parsed when `pwsh` is available
 
-### `python-tests.yml`
+## `python-tests.yml`
 
-This workflow installs the project dependencies, runs the full Python test
-suite, and exercises the application in test mode.
+This workflow installs the project dependencies, runs the Python test suite,
+and executes the application in test mode.
 
 It verifies:
-- dependencies can be installed from `requirements.txt`
-- `pytest` still passes
+- dependencies install from `requirements.txt`
+- `pytest` passes
 - `python app.py --test --no-bootstrap` completes successfully
-- the expected report and alert files are generated in test mode
+- the expected report and alert outputs are created
 
-### `security-checks.yml`
+## `security-checks.yml`
 
-This workflow performs lightweight guardrail checks that are easy to maintain.
+This workflow performs lightweight security checks.
 
 It verifies:
 - obvious secret-like strings are not introduced into source code
 - runtime output is not tracked in git
-- the PowerShell sensor uses `Export-Csv -NoTypeInformation`
+- the PowerShell sensor uses `Export-Csv` together with `-NoTypeInformation`
 - the Python command runner does not use `shell=True`
 
-## Why these checks exist
+## Why the Workflows Are Small
 
-The workflows are intentionally simple so they can be understood and updated
-without special tooling. Together they cover repository structure, syntax,
-tests, and a few high-value security checks before changes are merged.
+The workflows are intentionally simple so they remain easy to maintain and easy
+to explain in a review or examination setting.
