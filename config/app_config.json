@@ -1,1 +1,10 @@
-{}
+{
+  "project_name": "NordSec Identity & Privilege Control Auditor",
+  "version": "0.2.0",
+  "default_mode": "test",
+  "log_file": "logs/python_engine.log",
+  "supported_modes": [
+    "test",
+    "production"
+  ]
+}

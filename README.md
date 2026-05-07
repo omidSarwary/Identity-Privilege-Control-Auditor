@@ -7,3 +7,5 @@ across Linux and Windows environments.
 This repository currently contains the initial project structure, sensor
 stubs, Python entry point, and CI-ready placeholders needed for later
 implementation phases.
+
+Validated with Python 3.11 for the current project foundation.
