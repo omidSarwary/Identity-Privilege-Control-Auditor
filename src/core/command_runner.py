@@ -58,8 +58,8 @@ def run_command(
     """Execute a command safely and return structured output.
 
     Expects a list-style command, optional working directory, optional timeout,
-    and optional environment mapping. The helper never uses ``shell=True`` so
-    collectors do not inherit shell parsing risks.
+    and optional environment mapping. The helper always runs commands without
+    a shell so collectors do not inherit shell parsing risks.
     """
     command_list = [str(part) for part in command]
     start_time = time.time()
