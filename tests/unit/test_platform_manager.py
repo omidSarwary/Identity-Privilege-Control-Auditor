@@ -21,6 +21,7 @@ def test_choose_platform_with_requested_linux_mode() -> None:
     assert selection.platform == "linux"
     assert selection.analysis_mode == "production"
     assert selection.use_mockdata is False
+    assert "Windows logs should be copied manually" in selection.instructions
 
 
 def test_choose_platform_prompts_for_input() -> None:
@@ -29,3 +30,4 @@ def test_choose_platform_prompts_for_input() -> None:
 
     assert selection.platform == "windows"
     assert selection.analysis_mode == "production"
+    assert "Linux logs should be copied manually" in selection.instructions

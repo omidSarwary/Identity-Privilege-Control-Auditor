@@ -47,6 +47,18 @@ def _build_instructions(platform: str) -> str:
             "Test mode selected. Mock data will be used if available, and live "
             "system logs will not be modified."
         )
+    if platform == "linux":
+        return (
+            "Linux mode selected. Linux logs will be collected automatically, "
+            "while Windows logs should be copied manually into data/incoming/ "
+            "or logdata/windows/."
+        )
+    if platform == "windows":
+        return (
+            "Windows mode selected. Windows logs will be collected automatically, "
+            "while Linux logs should be copied manually into data/incoming/ "
+            "or logdata/linux/."
+        )
     return (
         f"{platform.title()} mode selected. Native sensors will later feed the "
         "collector output, while manually exported evidence can still be placed "

@@ -228,6 +228,8 @@ def main(argv: Sequence[str] | None = None, input_func: Callable[[str], str] = i
         print_message(f"Selected platform: {platform_selection.platform}")
         logger.info("Selected platform: %s", platform_selection.platform)
 
+        logger.info("Environment checks starting")
+        print_message("Environment checks started.")
         bootstrap_status = bootstrap_project(perform_full_checks=not args.no_bootstrap)
         if not bootstrap_status.environment.python_ok:
             for message in bootstrap_status.environment.messages:
@@ -239,12 +241,16 @@ def main(argv: Sequence[str] | None = None, input_func: Callable[[str], str] = i
                 logger.error("Missing directory: %s", missing_directory)
             return safe_exit(logger, 1, "Required directory check failed")
 
+        logger.info("Environment checks completed")
         print_message("Bootstrap completed.")
 
         mode_config_path = _mode_config_path(platform_selection.analysis_mode)
         mode_config = load_json_file(mode_config_path)
         data_paths = _build_data_paths(mode_config)
+        logger.info("Analysis configuration loaded from %s", mode_config_path)
 
+        logger.info("Evidence collection starting for platform=%s mode=%s", platform_selection.platform, platform_selection.analysis_mode)
+        print_message("Collecting available evidence.")
         collector_results = _run_platform_collectors(platform_selection)
         for collector_result in collector_results:
             logger.info(
@@ -253,6 +259,7 @@ def main(argv: Sequence[str] | None = None, input_func: Callable[[str], str] = i
                 collector_result.get("mode", platform_selection.analysis_mode),
                 _collector_status_text(collector_result),
             )
+        logger.info("Collector phase completed with %s result(s)", len(collector_results))
 
         if not collector_results:
             fallback_result = collect_fallback_data(mode=platform_selection.analysis_mode)
@@ -265,6 +272,12 @@ def main(argv: Sequence[str] | None = None, input_func: Callable[[str], str] = i
             fallback_result = collect_fallback_data(mode=platform_selection.analysis_mode)
 
         print_message(f"Fallback used: {'Yes' if fallback_result.get('fallback_activated') else 'No'}")
+        logger.info(
+            "Fallback summary: activated=%s used_files=%s reason=%s",
+            fallback_result.get("fallback_activated"),
+            len(fallback_result.get("used_files", {})),
+            fallback_result.get("fallback_reason", "n/a"),
+        )
 
         if fallback_result.get("no_data_found"):
             print_message("No usable data was found. The application will exit safely.")
