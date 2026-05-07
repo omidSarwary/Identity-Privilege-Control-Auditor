@@ -67,19 +67,18 @@ KNOWN_SOURCE_SPECS: dict[str, dict[str, Any]] = {
 def _search_directories(mode: str) -> list[Path]:
     """Build the exact fallback search order for one run.
 
-    The collector always checks collected output first, then incoming output,
-    then platform log folders. Test mode adds mock data last so unit and
-    integration tests can run without touching live sources.
+    Production mode checks the approved evidence directories in the documented
+    order. Test mode is intentionally isolated and uses only the mock data
+    directory so it cannot touch real system exports or logs.
     """
-    directories = [
+    if str(mode).strip().lower() == "test":
+        return [TEST_MOCKDATA_DIR]
+    return [
         DATA_COLLECTED_DIR,
         DATA_INCOMING_DIR,
         LOGDATA_DIR / "linux",
         LOGDATA_DIR / "windows",
     ]
-    if str(mode).strip().lower() == "test":
-        directories.append(TEST_MOCKDATA_DIR)
-    return directories
 
 
 def _status_dict(

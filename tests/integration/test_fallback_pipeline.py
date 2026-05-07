@@ -13,11 +13,7 @@ MOCKDATA_DIR = Path(__file__).resolve().parents[1] / "mockdata"
 
 
 def _configure_search_roots(monkeypatch, tmp_path: Path, *, test_mockdata_dir: Path | None = None) -> None:
-    """Point the fallback collector at isolated directories for one test run.
-
-    The integration tests use temporary directories so they can verify the
-    search order without touching the repository's real working data folders.
-    """
+    """Point the fallback collector at isolated directories for one test run."""
     collected_dir = tmp_path / "data" / "collected"
     incoming_dir = tmp_path / "data" / "incoming"
     logdata_dir = tmp_path / "logdata"
@@ -54,40 +50,41 @@ def _write_invalid_placeholder(path: Path, filename: str) -> None:
         target.write_text("", encoding="utf-8")
 
 
-def test_fallback_skips_invalid_collected_files_and_uses_mockdata(monkeypatch, tmp_path) -> None:
-    """Invalid files in collected output must not stop test-mode fallback.
+def test_test_mode_uses_mockdata_only(monkeypatch, tmp_path) -> None:
+    """Test mode must stay isolated and use only the mock data directory.
 
-    This protects the collector contract: a bad placeholder in data/collected/
-    should be logged and skipped so valid mock data can still be used.
+    This protects the safety contract for ``--test``: the fallback collector
+    should not inspect collected output, incoming exports, or raw log folders
+    when the application is explicitly running in mock mode.
     """
     _configure_search_roots(monkeypatch, tmp_path, test_mockdata_dir=MOCKDATA_DIR)
 
     collected_dir = tmp_path / "data" / "collected"
-    _write_invalid_placeholder(collected_dir, "linux_identity.json")
-    _write_invalid_placeholder(collected_dir, "linux_policy.json")
-    _write_invalid_placeholder(collected_dir, "windows_identity.csv")
-    _write_invalid_placeholder(collected_dir, "windows_events.csv")
-    _write_invalid_placeholder(collected_dir, "windows_policy.csv")
-    _write_invalid_placeholder(collected_dir, "auth.log")
+    incoming_dir = tmp_path / "data" / "incoming"
+    logdata_linux_dir = tmp_path / "logdata" / "linux"
+    logdata_windows_dir = tmp_path / "logdata" / "windows"
+
+    for directory in [collected_dir, incoming_dir, logdata_linux_dir, logdata_windows_dir]:
+        _write_invalid_placeholder(directory, "linux_identity.json")
+        _write_invalid_placeholder(directory, "linux_policy.json")
+        _write_invalid_placeholder(directory, "windows_identity.csv")
+        _write_invalid_placeholder(directory, "windows_events.csv")
+        _write_invalid_placeholder(directory, "windows_policy.csv")
+        _write_invalid_placeholder(directory, "auth.log")
 
     result = collect_fallback_data(mode="test")
 
+    assert result["searched_directories"] == [str(MOCKDATA_DIR)]
     assert result["no_data_found"] is False
     assert result["used_files"]["linux_identity"]["source_directory"].endswith("mockdata")
     assert result["used_files"]["linux_policy"]["source_directory"].endswith("mockdata")
     assert result["used_files"]["windows_identity"]["source_directory"].endswith("mockdata")
     assert result["used_files"]["windows_policy"]["source_directory"].endswith("mockdata")
-    assert result["sources"]["linux_identity"]["attempts"][0]["valid"] is False
-    assert result["sources"]["linux_identity"]["attempts"][-1]["selected"] is True
-    assert all("collected" not in info["path"] or not info["valid"] for info in result["used_files"].values())
+    assert all(attempt["source_directory"].endswith("mockdata") for attempt in result["sources"]["linux_identity"]["attempts"])
 
 
 def test_production_mode_skips_invalid_data_and_returns_no_data(monkeypatch, tmp_path) -> None:
-    """Production mode should skip invalid placeholders and avoid mock data.
-
-    This verifies that invalid or empty collector output does not count as
-    usable evidence and that test-only sources are never used in production.
-    """
+    """Production mode should skip invalid placeholders and avoid mock data."""
     _configure_search_roots(monkeypatch, tmp_path)
 
     collected_dir = tmp_path / "data" / "collected"
@@ -111,11 +108,12 @@ def test_production_mode_skips_invalid_data_and_returns_no_data(monkeypatch, tmp
     assert "tests/mockdata" not in "".join(result["searched_directories"])
 
 
-def test_fallback_search_order_prefers_earlier_approved_directories(monkeypatch, tmp_path) -> None:
-    """The fallback collector should honor the documented search order.
+def test_production_mode_honors_search_order(monkeypatch, tmp_path) -> None:
+    """The fallback collector should respect the documented production order.
 
-    A valid file in `data/incoming/` must be chosen before the same file in
-    `logdata/` or test mock data, and test mock data must remain last.
+    A valid file in ``data/incoming`` must be chosen before the same file in
+    ``logdata/linux``. This keeps the collector predictable when multiple
+    approved locations contain the same evidence type.
     """
     _configure_search_roots(monkeypatch, tmp_path, test_mockdata_dir=MOCKDATA_DIR)
 
@@ -127,9 +125,13 @@ def test_fallback_search_order_prefers_earlier_approved_directories(monkeypatch,
     _copy_mock_file("linux_identity.json", incoming_dir)
     _copy_mock_file("linux_policy.json", logdata_linux_dir)
 
-    result = collect_fallback_data(mode="test")
+    result = collect_fallback_data(mode="production")
 
+    assert result["searched_directories"] == [
+        str(collected_dir),
+        str(incoming_dir),
+        str(logdata_linux_dir),
+        str(tmp_path / "logdata" / "windows"),
+    ]
     assert result["used_files"]["linux_identity"]["source_directory"].endswith("incoming")
     assert result["used_files"]["linux_policy"]["source_directory"].endswith("linux")
-    assert "mockdata" in "".join(result["searched_directories"])
-    assert result["used_files"]["linux_identity"]["source_directory"] != result["searched_directories"][-1]

@@ -93,24 +93,22 @@ def _as_path(value: Any) -> Path | None:
 def _base_directories(mode: str, data_paths: Mapping[str, Any]) -> list[Path]:
     """Build the ordered search paths for source files.
 
-    Test mode prefers mock data first so the pipeline stays deterministic,
-    while production mode prefers collected data and live log locations.
+    Test mode is intentionally isolated and only reads mock data plus the
+    approved baseline directory. Production mode reads the documented data and
+    log locations first so live evidence can still be analyzed later.
     """
     normalized_mode = str(mode).strip().lower()
-    ordered_keys = (
-        ("mockdata", TEST_MOCKDATA_DIR),
-        ("incoming", DATA_INCOMING_DIR),
-        ("collected", DATA_COLLECTED_DIR),
-        ("logdata", LOGDATA_DIR),
-        ("baselines", BASELINES_DIR),
-    )
-    if normalized_mode == "production":
+    if normalized_mode == "test":
+        ordered_keys = (
+            ("mockdata", TEST_MOCKDATA_DIR),
+            ("baselines", BASELINES_DIR),
+        )
+    else:
         ordered_keys = (
             ("incoming", DATA_INCOMING_DIR),
             ("collected", DATA_COLLECTED_DIR),
             ("logdata", LOGDATA_DIR),
             ("baselines", BASELINES_DIR),
-            ("mockdata", TEST_MOCKDATA_DIR),
         )
 
     base_directories: list[Path] = []
