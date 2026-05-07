@@ -12,7 +12,12 @@ LOGGER = logging.getLogger("nordsec.ipca.parsers.log_loader")
 
 
 def load_text_log(path: Path) -> list[str]:
-    """Load a text log file and return its lines without crashing on encoding issues."""
+    """Load a text log file and return its lines.
+
+    Expects a path to a text log and returns a list of lines. The loader uses
+    replacement decoding so unusual characters do not break the pipeline, which
+    is useful when log exports come from mixed operating systems.
+    """
     try:
         content = read_text_file(path, errors="replace")
     except (FileMissingError, EmptyFileError):

@@ -22,7 +22,11 @@ CONFIG_BASELINES_DIR = PROJECT_ROOT / "config" / "baselines"
 
 
 def _load_inputs() -> dict[str, object]:
-    """Load the anonymous mock inputs used by the correlation tests."""
+    """Load the anonymous mock inputs used by the correlation tests.
+
+    The helper keeps the test bodies small while still showing the full data
+    path from mock files through parsers, correlation, and anomaly detection.
+    """
     linux_identity = load_json_file(MOCKDATA_DIR / "linux_identity.json")
     linux_policy = load_json_file(MOCKDATA_DIR / "linux_policy.json")
     windows_identity_rows = load_csv_file(
@@ -80,12 +84,20 @@ def _load_inputs() -> dict[str, object]:
 
 
 def _get_record(records: list[dict[str, object]], identity: str) -> dict[str, object]:
-    """Return the normalized record for a specific identity."""
+    """Return the normalized record for a specific identity.
+
+    The tests use this helper to focus on one account at a time so each
+    assertion clearly explains the correlation behavior being verified.
+    """
     return next(record for record in records if record["identity"] == identity)
 
 
 def test_linux_sudo_baseline_matches_correctly() -> None:
-    """Approved Linux sudo users should be marked as baseline matches."""
+    """Approved Linux sudo users should be marked as baseline matches.
+
+    This checks that approved privilege lists are respected before anomaly
+    detection runs.
+    """
     inputs = _load_inputs()
     record = _get_record(inputs["records"], "ops_backup")
 
@@ -94,7 +106,11 @@ def test_linux_sudo_baseline_matches_correctly() -> None:
 
 
 def test_windows_admin_baseline_matches_correctly() -> None:
-    """Approved Windows administrators should be marked as baseline matches."""
+    """Approved Windows administrators should be marked as baseline matches.
+
+    The Windows admin baseline is a separate trust source, so it must be
+    matched independently of Linux sudo data.
+    """
     inputs = _load_inputs()
     record = _get_record(inputs["records"], "adm_svc_win")
 
@@ -103,7 +119,11 @@ def test_windows_admin_baseline_matches_correctly() -> None:
 
 
 def test_disabled_account_with_failed_login_is_critical() -> None:
-    """A disabled account with failed logins should escalate to CRITICAL."""
+    """A disabled account with failed logins should escalate to CRITICAL.
+
+    This verifies the strongest identity anomaly: activity on an account that
+    should not be active in the first place.
+    """
     inputs = _load_inputs()
     focus_records = [_get_record(inputs["records"], "disabled_user")]
 
@@ -120,7 +140,11 @@ def test_disabled_account_with_failed_login_is_critical() -> None:
 
 
 def test_inactive_privileged_account_is_high() -> None:
-    """A privileged account with no activity should be treated as high risk."""
+    """A privileged account with no activity should be treated as high risk.
+
+    This checks the standing-privilege scenario where access exists but use is
+    not observed, which still matters for the report.
+    """
     inputs = _load_inputs()
     focus_records = [_get_record(inputs["records"], "adm_svc_win")]
 
@@ -137,7 +161,11 @@ def test_inactive_privileged_account_is_high() -> None:
 
 
 def test_policy_deviation_is_detected() -> None:
-    """Windows policy deviations should produce a readable anomaly finding."""
+    """Windows policy deviations should produce a readable anomaly finding.
+
+    Policy mismatches must become findings so the report can explain control
+    gaps separately from login activity.
+    """
     inputs = _load_inputs()
     focus_records = [_get_record(inputs["records"], "normal_user")]
 

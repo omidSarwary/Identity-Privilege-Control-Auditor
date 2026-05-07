@@ -28,18 +28,33 @@ class EnvironmentStatus:
 
 
 def check_python_version(min_version: tuple[int, int] = MIN_PYTHON_VERSION) -> bool:
-    """Return ``True`` when the current interpreter meets the minimum version."""
+    """Check whether the active interpreter meets the minimum supported version.
+
+    Expects a ``(major, minor)`` tuple and returns ``True`` when the running
+    Python version is new enough for the project. This protects the pipeline
+    from running under an unsupported interpreter.
+    """
     return sys.version_info >= min_version
 
 
 def check_required_directories() -> tuple[bool, tuple[str, ...]]:
-    """Verify that the required directories are present on disk."""
+    """Verify that the required project directories exist.
+
+    Returns a ``(status, missing_paths)`` tuple so bootstrap code can report
+    missing folders without crashing. This helps the audit tool fail safely when
+    its working directories are incomplete.
+    """
     missing = tuple(str(directory) for directory in REQUIRED_DIRECTORIES if not directory.exists())
     return not missing, missing
 
 
 def check_environment() -> EnvironmentStatus:
-    """Collect structured status for the core runtime environment."""
+    """Collect the current bootstrap status for Python and project folders.
+
+    Returns an :class:`EnvironmentStatus` object that the application can log or
+    inspect before starting work. The structured result keeps error handling
+    explicit and avoids relying on print statements or hidden side effects.
+    """
     python_ok = check_python_version()
     directories_ok, missing_directories = check_required_directories()
     messages = []

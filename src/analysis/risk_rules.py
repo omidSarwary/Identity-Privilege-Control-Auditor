@@ -7,7 +7,11 @@ from typing import Any, Mapping, Sequence
 
 
 class RiskLevel(str, Enum):
-    """Centralized risk levels used across the analysis layer."""
+    """Centralized risk levels used across the analysis layer.
+
+    The values must stay stable because correlation, scoring, reporting, and
+    tests all rely on the same vocabulary when describing severity.
+    """
 
     CRITICAL = "CRITICAL"
     HIGH = "HIGH"
@@ -32,7 +36,12 @@ def create_finding(
     source: str,
     recommended_action: str,
 ) -> dict[str, str]:
-    """Build a normalized finding record for downstream reporting."""
+    """Build a normalized finding record for downstream reporting.
+
+    Expects the severity, identity name, finding text, reason, source, and
+    recommended action. The function exists so every rule returns the same
+    dictionary shape, which keeps the report and alert pipeline simple.
+    """
     return {
         "risk_level": risk_level.value,
         "identity": identity,
@@ -44,16 +53,23 @@ def create_finding(
 
 
 def _identity_name(record: Mapping[str, Any], default: str = "unknown") -> str:
+    """Extract the most useful identity name from a mixed input record."""
     return str(record.get("username") or record.get("identity") or default)
 
 
 def _is_truthy(value: Any) -> bool:
+    """Interpret common text and boolean values as a simple enabled/disabled flag."""
     if isinstance(value, str):
         return value.strip().lower() in {"true", "1", "yes", "enabled", "yes"}
     return bool(value)
 
 
 def _count_failed_logins(events: Sequence[Mapping[str, Any]], username: str) -> int:
+    """Count failed login events for one identity.
+
+    This is used by several rules, so the counting logic lives in one place to
+    avoid inconsistency between the different risk checks.
+    """
     count = 0
     for event in events:
         event_user = str(
@@ -77,7 +93,12 @@ def disabled_account_with_inactivity(
     auth_events: Sequence[Mapping[str, Any]],
     source: str,
 ) -> dict[str, str] | None:
-    """Return a critical finding when a disabled account still has activity."""
+    """Return a critical finding when a disabled account still has activity.
+
+    Expects an identity record, the related authentication events, and a source
+    label. Disabled accounts should not be active, so any failed-login evidence
+    becomes a CRITICAL finding.
+    """
     if _is_truthy(identity.get("enabled", True)):
         return None
 
@@ -99,7 +120,12 @@ def unauthorized_windows_admin(
     approved_admins: Sequence[str],
     source: str,
 ) -> dict[str, str] | None:
-    """Return a critical finding for an unapproved Windows administrators member."""
+    """Return a critical finding for an unapproved Windows administrators member.
+
+    Expects a Windows identity record and the approved admin baseline. Local
+    administrator access is high impact, so an unapproved member must be
+    escalated immediately.
+    """
     username = _identity_name(identity)
     if _is_truthy(identity.get("is_local_admin")) and username not in approved_admins:
         return create_finding(
@@ -118,7 +144,11 @@ def unauthorized_linux_sudo_user(
     approved_sudoers: Sequence[str],
     source: str,
 ) -> dict[str, str] | None:
-    """Return a critical finding for an unapproved Linux sudo user."""
+    """Return a critical finding for an unapproved Linux sudo user.
+
+    Expects a Linux identity record and the approved sudo baseline. Sudo access
+    changes the host's security posture, so an unapproved sudo user is CRITICAL.
+    """
     username = _identity_name(identity)
     if "sudo" in {str(item).lower() for item in identity.get("privileges", [])} and username not in approved_sudoers:
         return create_finding(
@@ -138,7 +168,12 @@ def privileged_account_with_multiple_failed_logins(
     source: str,
     threshold: int = 2,
 ) -> dict[str, str] | None:
-    """Return a critical finding for privileged accounts with repeated failed logins."""
+    """Return a critical finding for privileged accounts with repeated failed logins.
+
+    Expects an identity record and that identity's failed-login events. Repeated
+    failures are more serious on privileged accounts because compromise could
+    expose broader host access.
+    """
     username = _identity_name(identity)
     is_privileged = _is_truthy(identity.get("is_local_admin")) or "sudo" in {
         str(item).lower() for item in identity.get("privileges", [])
@@ -160,7 +195,12 @@ def ssh_root_login_with_privileged_activity(
     privileged_activity_observed: bool,
     source: str,
 ) -> dict[str, str] | None:
-    """Return a critical finding when root SSH login is permitted and privileged activity is observed."""
+    """Return a critical finding when root SSH login is permitted and privileged activity is observed.
+
+    Expects the Linux SSH policy and a flag showing whether privileged activity
+    was seen. Allowing root SSH login weakens the host, so observed privileged
+    activity under that policy becomes CRITICAL.
+    """
     ssh_policy = policy.get("ssh_policy", {})
     if (
         isinstance(ssh_policy, Mapping)
@@ -179,7 +219,11 @@ def ssh_root_login_with_privileged_activity(
 
 
 def corrupt_critical_input_data(source: str, reason: str, identity: str = "unknown") -> dict[str, str]:
-    """Return a critical finding for corrupt critical input data."""
+    """Return a critical finding for corrupt critical input data.
+
+    Expects the source label and a human-readable reason. Corrupt inputs are
+    treated as critical because the downstream analysis cannot trust them.
+    """
     return create_finding(
         risk_level=RiskLevel.CRITICAL,
         identity=identity,
@@ -194,7 +238,12 @@ def inactive_account_with_privileges(
     identity: Mapping[str, Any],
     source: str,
 ) -> dict[str, str] | None:
-    """Return a high-risk finding for an inactive account with privileges."""
+    """Return a high-risk finding for an inactive account with privileges.
+
+    Expects an identity record that includes inactivity and privilege details.
+    Standing privileged access without normal use deserves HIGH severity because
+    it expands the attack surface even when the account appears dormant.
+    """
     username = _identity_name(identity)
     is_inactive = _is_truthy(identity.get("is_inactive"))
     is_privileged = _is_truthy(identity.get("is_local_admin")) or "sudo" in {
@@ -217,7 +266,11 @@ def multiple_failed_logins_from_same_ip(
     source: str,
     threshold: int = 2,
 ) -> dict[str, str] | None:
-    """Return a high-risk finding when the same IP generates repeated failures."""
+    """Return a high-risk finding when the same IP generates repeated failures.
+
+    Expects authentication events and a source label. Repeated failures from
+    one network source often indicate brute-force or password-spraying activity.
+    """
     counts: dict[str, int] = {}
     for event in events:
         if str(event.get("event_type") or event.get("EventType") or "").lower() != "failed_login":
@@ -246,7 +299,11 @@ def missing_audit_policy(
     policy: Mapping[str, Any],
     source: str,
 ) -> dict[str, str] | None:
-    """Return a high-risk finding when audit policy data is unavailable."""
+    """Return a high-risk finding when audit policy data is unavailable.
+
+    Expects a policy dictionary and source label. Missing audit policy matters
+    because the report needs to know whether logging controls are visible at all.
+    """
     audit_policy = policy.get("audit_policy")
     if audit_policy is None:
         return create_finding(
@@ -264,7 +321,11 @@ def windows_firewall_disabled(
     policy_rows: Sequence[Mapping[str, Any]],
     source: str,
 ) -> dict[str, str] | None:
-    """Return a high-risk finding when the readable firewall control is disabled."""
+    """Return a high-risk finding when the readable firewall control is disabled.
+
+    Expects Windows policy rows and a source label. The rule only fires when
+    the control can be read, which avoids guessing about hidden state.
+    """
     for row in policy_rows:
         check_name = str(row.get("CheckName") or row.get("check_name") or "")
         if check_name.lower() == "firewall_enabled" and str(row.get("Status") or row.get("status") or "").lower() in {"false", "disabled", "off"}:
@@ -283,7 +344,12 @@ def weak_ssh_policy(
     policy: Mapping[str, Any],
     source: str,
 ) -> dict[str, str] | None:
-    """Return a medium-risk finding when the SSH policy is weaker than the baseline."""
+    """Return a medium-risk finding when the SSH policy is weaker than the baseline.
+
+    Expects the SSH policy mapping and a source label. SSH weaknesses are
+    important, but the severity stays below CRITICAL unless privileged activity
+    or root exposure is also present.
+    """
     ssh_policy = policy.get("ssh_policy")
     if not isinstance(ssh_policy, Mapping):
         return None
@@ -314,7 +380,8 @@ def policy_deviation(
     """Return a medium-risk finding for a policy deviation.
 
     The function is intentionally generic so correlation can describe a control
-    mismatch without duplicating the rule in multiple places.
+    mismatch without duplicating the rule in multiple places. It keeps policy
+    deviation wording consistent across Linux and Windows findings.
     """
     return create_finding(
         risk_level=RiskLevel.MEDIUM,
@@ -331,7 +398,12 @@ def normal_user_single_failed_logins(
     auth_events: Sequence[Mapping[str, Any]],
     source: str,
 ) -> dict[str, str] | None:
-    """Return a low-risk finding for a normal user with a single failed login."""
+    """Return a low-risk finding for a normal user with a single failed login.
+
+    Expects a non-privileged identity and related authentication events. A
+    single failed login is still worth reporting, but it stays LOW because the
+    account does not control privileged functions.
+    """
     username = _identity_name(identity)
     is_privileged = _is_truthy(identity.get("is_local_admin")) or "sudo" in {
         str(item).lower() for item in identity.get("privileges", [])
@@ -354,7 +426,12 @@ def missing_log_source_but_other_data_exists(
     reason: str,
     identity: str = "system",
 ) -> dict[str, str]:
-    """Return a medium-risk finding when one log source is missing but other data exists."""
+    """Return a medium-risk finding when one log source is missing but other data exists.
+
+    Expects a source label and reason string. The finding stays MEDIUM because
+    the analysis can continue, but the missing source should be explained in
+    the report as a data-quality limitation.
+    """
     return create_finding(
         risk_level=RiskLevel.MEDIUM,
         identity=identity,

@@ -2,5 +2,9 @@
 
 
 def test_placeholder_windows_pipeline() -> None:
-    """Ensure the test file is collected and executes cleanly."""
+    """Keep the Windows integration test module discoverable without behavior.
+
+    This placeholder preserves the integration-test structure while avoiding
+    premature implementation of the Windows pipeline.
+    """
     assert True

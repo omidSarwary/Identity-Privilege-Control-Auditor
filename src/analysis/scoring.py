@@ -9,7 +9,12 @@ from src.analysis.risk_rules import RISK_ORDER, RiskLevel
 
 
 def summarize_findings(findings: Iterable[dict[str, Any]]) -> dict[str, Any]:
-    """Summarize findings by identity and preserve the highest risk level."""
+    """Summarize findings by identity and preserve the highest risk level.
+
+    Expects an iterable of finding dictionaries and returns a structure with
+    per-risk counts plus identity summaries. The highest severity wins for each
+    identity because the final report should highlight the most urgent issue.
+    """
     summary: dict[str, dict[str, Any]] = defaultdict(
         lambda: {"identity": "", "risk_level": RiskLevel.LOW.value, "findings": []}
     )
@@ -18,6 +23,8 @@ def summarize_findings(findings: Iterable[dict[str, Any]]) -> dict[str, Any]:
     for finding in findings:
         identity = str(finding.get("identity", "unknown"))
         risk_level = str(finding.get("risk_level", RiskLevel.LOW.value))
+        # Unknown or malformed risk levels are treated as LOW so the summary can
+        # continue safely instead of failing on unexpected input.
         if risk_level not in {level.value for level in RiskLevel}:
             risk_level = RiskLevel.LOW.value
         summary_entry = summary[identity]

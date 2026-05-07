@@ -16,7 +16,11 @@ MAX_LOG_BYTES = 1_048_576
 
 
 class RunContextFilter(logging.Filter):
-    """Inject run metadata into every log record."""
+    """Inject the current run identifier and component into log records.
+
+    The filter keeps every log line traceable to one execution, which matters
+    for audit logs and forensic review after a security scan or report run.
+    """
 
     def __init__(self, run_id: str) -> None:
         super().__init__()
@@ -31,14 +35,22 @@ class RunContextFilter(logging.Filter):
 
 
 class CompactLogFormatter(logging.Formatter):
-    """Format log lines with a compact audit-friendly structure."""
+    """Format logs in the compact audit format used by the project.
+
+    The formatter preserves a predictable timestamp, severity, component, and
+    run identifier so logs are easy to compare across test and production runs.
+    """
 
     def formatTime(self, record: logging.LogRecord, datefmt: str | None = None) -> str:
         return super().formatTime(record, datefmt or "%Y-%m-%d %H:%M:%S")
 
 
 def _rotate_existing_log_if_needed(log_file_path: Path) -> None:
-    """Move an oversized log file into the archive directory."""
+    """Archive an oversized log file before a new run writes to it.
+
+    This keeps the active log small while preserving historical evidence in
+    ``logs/archive/``. The rotation is intentionally simple and read-only.
+    """
     if not log_file_path.exists() or log_file_path.stat().st_size < MAX_LOG_BYTES:
         return
 
@@ -48,7 +60,12 @@ def _rotate_existing_log_if_needed(log_file_path: Path) -> None:
 
 
 def _prepare_handlers(run_id: str, debug: bool) -> list[logging.Handler]:
-    """Build the file and console handlers used by the application."""
+    """Build the file and console handlers used by the application.
+
+    Expects a run identifier and debug flag, then returns the configured
+    handlers that write to the engine log and console. The handlers are kept in
+    one place so the format stays consistent across the project.
+    """
     LOGS_DIR.mkdir(parents=True, exist_ok=True)
     LOGS_ARCHIVE_DIR.mkdir(parents=True, exist_ok=True)
     _rotate_existing_log_if_needed(LOG_FILE_PATH)
@@ -81,6 +98,17 @@ def setup_logging(run_id: str, debug: bool = False) -> logging.Logger:
         Unique identifier for the current execution.
     debug:
         When ``True``, console output includes debug-level messages.
+
+    Returns
+    -------
+    logging.Logger
+        The shared project logger used by the application and analysis layers.
+
+    Security / robustness
+    ---------------------
+    The function resets root handlers so the project does not accidentally
+    duplicate messages or inherit unrelated logging configuration from the
+    environment.
     """
     root_logger = logging.getLogger()
     root_logger.handlers.clear()
@@ -93,7 +121,12 @@ def setup_logging(run_id: str, debug: bool = False) -> logging.Logger:
 
 
 def get_component_logger(component: str, run_id: str) -> logging.LoggerAdapter:
-    """Return a logger adapter that injects component and run metadata."""
+    """Return a component-aware logger adapter for structured output.
+
+    Expects a component name and the current run identifier, then returns a
+    logger adapter that stamps both values into each record. This keeps logs
+    easy to trace when several pipeline steps run in the same session.
+    """
     return logging.LoggerAdapter(
         logging.getLogger("nordsec.ipca"),
         {"component": component, "run_id": run_id},

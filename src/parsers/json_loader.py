@@ -15,8 +15,10 @@ LOGGER = logging.getLogger("nordsec.ipca.parsers.json_loader")
 def load_json_file(path: Path) -> dict:
     """Load a JSON file and return a dictionary.
 
-    Missing, empty, and invalid JSON inputs are reported through controlled
-    exceptions so fallback logic can handle them later.
+    Expects a path to a JSON document and returns the parsed top-level object
+    as a dictionary. Missing, empty, and invalid JSON inputs are surfaced as
+    controlled exceptions so later fallback logic can choose a safe alternate
+    source instead of crashing.
     """
     try:
         content = read_text_file(path)

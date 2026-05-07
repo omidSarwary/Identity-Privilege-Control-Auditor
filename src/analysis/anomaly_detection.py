@@ -34,7 +34,11 @@ RISK_SCORE_BY_LEVEL = {
 
 
 def _as_username_set(values: Sequence[Any] | None) -> set[str]:
-    """Convert approved baseline rows into a set of usernames."""
+    """Convert approved baseline rows into a set of usernames.
+
+    This helper lets the anomaly rules compare accounts against approved lists
+    without caring whether the baseline came from CSV rows or plain strings.
+    """
     usernames: set[str] = set()
     for value in values or []:
         if isinstance(value, Mapping):
@@ -50,7 +54,9 @@ def _apply_risk_summary(record: dict[str, Any], findings: list[dict[str, str]]) 
     """Update the normalized record with the highest risk level seen for it.
 
     The summary keeps the identity-centric score aligned with the most severe
-    finding so that later reporting can explain the final decision clearly.
+    finding so that later reporting can explain the final decision clearly. The
+    highest risk always wins because the report must reflect the most urgent
+    action item for that identity.
     """
     if not findings:
         record["risk_score"] = RISK_SCORE_BY_LEVEL[RiskLevel.LOW.value]
@@ -69,7 +75,11 @@ def _apply_risk_summary(record: dict[str, Any], findings: list[dict[str, str]]) 
 
 
 def _copy_record(identity: Mapping[str, Any]) -> dict[str, Any]:
-    """Return a mutable copy of a normalized identity record."""
+    """Return a mutable copy of a normalized identity record.
+
+    The anomaly layer works on dictionaries so it can enrich the record with
+    findings and scores without depending on a custom model class.
+    """
     return dict(identity)
 
 
@@ -87,7 +97,8 @@ def detect_anomalies(
 
     The function expects normalized dictionaries produced by the correlation
     layer plus optional raw policy and baseline inputs. It returns findings and
-    also updates the normalized records with their resulting risk summary.
+    also updates the normalized records with their resulting risk summary. This
+    is the point where correlated facts become security findings.
     """
     LOGGER.info("Starting anomaly detection")
 
@@ -107,6 +118,8 @@ def detect_anomalies(
         platforms = {str(item).lower() for item in record.get("platforms", [])}
         identity_findings: list[dict[str, str]] = []
 
+        # Windows local admin membership is checked against the approved list so
+        # that standing privilege only becomes a finding when it is not expected.
         if not baseline_match and "windows" in platforms and "local_admin" in privileges:
             finding = unauthorized_windows_admin(
                 {"username": username, "is_local_admin": True},
@@ -117,6 +130,8 @@ def detect_anomalies(
                 finding["identity"] = username
                 identity_findings.append(finding)
 
+        # Linux sudo accounts are validated separately because the approved
+        # sudo baseline is a distinct control from Windows admin membership.
         if not baseline_match and "linux" in platforms and "sudo" in privileges:
             finding = unauthorized_linux_sudo_user(
                 {"username": username, "privileges": ["sudo"]},
@@ -148,6 +163,8 @@ def detect_anomalies(
                 finding["identity"] = username
                 identity_findings.append(finding)
 
+        # Disabled accounts that still show failures are a strong indicator that
+        # the account is being probed or used incorrectly.
         if record.get("status") == "disabled" and failed_logins:
             finding = disabled_account_with_inactivity(
                 {"username": username, "enabled": False},
@@ -158,6 +175,8 @@ def detect_anomalies(
                 finding["identity"] = username
                 identity_findings.append(finding)
 
+        # A single failed login from a normal user is still useful evidence, but
+        # it stays low risk because the account is not privileged.
         if len(failed_logins) == 1 and not privileges:
             finding = normal_user_single_failed_logins(
                 {"username": username, "is_local_admin": False, "privileges": []},
@@ -168,6 +187,8 @@ def detect_anomalies(
                 finding["identity"] = username
                 identity_findings.append(finding)
 
+        # Privileged accounts with repeated failures are higher risk because the
+        # account can affect more of the host if compromised.
         if len(failed_logins) >= 2 and privileges:
             finding = privileged_account_with_multiple_failed_logins(
                 {"username": username, "is_local_admin": "local_admin" in privileges, "privileges": list(privileges)},

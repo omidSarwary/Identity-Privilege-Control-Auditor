@@ -85,7 +85,9 @@ def normalize_identities(
 
     The function expects the parsed Linux JSON payload and Windows CSV rows.
     It returns a list of dictionaries that later stages can enrich with
-    baselines, events, policy findings, and risk data.
+    baselines, events, policy findings, and risk data. This step matters
+    because the rest of the pipeline needs one common shape before it can
+    compare identities across platforms.
     """
     LOGGER.info("Starting identity normalization")
 
@@ -98,7 +100,8 @@ def normalize_identities(
         _merge_platform(record, "linux")
 
         # Linux privilege state is derived from the sudo inventory and the user
-        # record so later correlation can compare it to the approved baseline.
+        # record so later correlation can compare it to the approved baseline
+        # instead of treating Linux and Windows as separate analysis worlds.
         if _truthy(user.get("is_sudo")) and "sudo" not in record["privileges"]:
             record["privileges"].append("sudo")
 
@@ -119,7 +122,8 @@ def normalize_identities(
         _merge_platform(record, "windows")
 
         # Windows local admin membership is tracked separately from account
-        # enablement so the later baseline comparison can distinguish the two.
+        # enablement so the later baseline comparison can distinguish standing
+        # privilege from the basic enabled/disabled account state.
         if _truthy(row.get("IsLocalAdmin") or row.get("is_local_admin")) and "local_admin" not in record["privileges"]:
             record["privileges"].append("local_admin")
 
@@ -143,7 +147,8 @@ def correlate_identity_privileges(
 
     The function expects normalized identity dictionaries and approved baseline
     rows. It marks whether the identity matches the approved control state and
-    stores a short reason when a privileged account is not approved.
+    stores a short reason when a privileged account is not approved. This is
+    the point where baseline membership becomes part of the identity story.
     """
     LOGGER.info("Starting identity privilege correlation")
 
@@ -160,6 +165,8 @@ def correlate_identity_privileges(
         # Baseline matching is intentionally conservative: non-privileged users
         # are treated as compliant by default, while privileged users must be in
         # an approved list before the account is considered a baseline match.
+        # That keeps the report focused on accounts that can actually change the
+        # security posture of the host.
         privileged = bool(privileges)
         approved = (
             username in approved_linux
@@ -190,7 +197,9 @@ def correlate_events_to_identities(
     """Attach authentication events to their matching normalized identities.
 
     Events are matched by account name so Windows CSV events and Linux auth log
-    entries can be compared against the same identity record.
+    entries can be compared against the same identity record. This is the key
+    step that lets the report explain *who* saw activity, not just *that* an
+    event happened somewhere on the host.
     """
     LOGGER.info("Starting event-to-identity correlation")
 
@@ -224,6 +233,8 @@ def correlate_events_to_identities(
     for identity in normalized_identities or []:
         record = dict(identity)
         username = str(record.get("identity") or "unknown")
+        # Events are attached per identity so later anomaly rules can count
+        # failed logins and tie them back to a specific account.
         record["events"] = list(record.get("events", [])) + event_index.get(username, [])
         correlated.append(record)
 
@@ -241,7 +252,8 @@ def correlate_policy_findings(
 
     The policy comparison is kept separate from event correlation so that the
     report can explain which control area produced the deviation: SSH on Linux
-    and firewall/audit/execution policy on Windows.
+    and firewall/audit/execution policy on Windows. This separation makes the
+    final findings easier to describe in an examination report.
     """
     LOGGER.info("Starting policy correlation")
 
@@ -274,7 +286,8 @@ def correlate_policy_findings(
 
         # Windows policy rows are already normalized enough for comparison, so
         # the correlation step only records the deviation and leaves scoring to
-        # the anomaly phase.
+        # the anomaly phase. This keeps policy comparison separate from risk
+        # severity selection.
         if check_name == "firewall_enabled" and status.lower() in {"false", "disabled", "off"}:
             windows_findings.append(
                 {
