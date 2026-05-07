@@ -45,6 +45,20 @@ class CompactLogFormatter(logging.Formatter):
         return super().formatTime(record, datefmt or "%Y-%m-%d %H:%M:%S")
 
 
+class ConsoleVisibilityFilter(logging.Filter):
+    """Keep the console focused on user-facing app messages.
+
+    The detailed audit trail still goes to the file handler, but the terminal
+    only shows app-level warnings/errors plus any critical stop condition.
+    This keeps normal runs readable without hiding important failures.
+    """
+
+    def filter(self, record: logging.LogRecord) -> bool:
+        if record.levelno >= logging.CRITICAL:
+            return True
+        return record.name == "nordsec.ipca" and record.levelno >= logging.WARNING
+
+
 def _rotate_existing_log_if_needed(log_file_path: Path) -> None:
     """Archive an oversized log file before a new run writes to it.
 
@@ -74,13 +88,16 @@ def _prepare_handlers(run_id: str, debug: bool) -> list[logging.Handler]:
     file_handler.setLevel(logging.DEBUG)
 
     console_handler = logging.StreamHandler(sys.stdout)
-    console_handler.setLevel(logging.DEBUG if debug else logging.INFO)
+    # Keep the terminal focused on actionable messages while the file log
+    # preserves the full audit trail for later review.
+    console_handler.setLevel(logging.DEBUG if debug else logging.ERROR)
 
     formatter = CompactLogFormatter(
         "%(asctime)s %(levelname)s %(component)s %(run_id)s %(message)s"
     )
     file_handler.setFormatter(formatter)
     console_handler.setFormatter(formatter)
+    console_handler.addFilter(ConsoleVisibilityFilter())
 
     context_filter = RunContextFilter(run_id=run_id)
     file_handler.addFilter(context_filter)

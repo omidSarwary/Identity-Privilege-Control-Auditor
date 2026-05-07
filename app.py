@@ -225,6 +225,7 @@ def main(argv: Sequence[str] | None = None, input_func: Callable[[str], str] = i
             input_func=input_func,
         )
         print_message(platform_selection.instructions)
+        print_message(f"Selected platform: {platform_selection.platform}")
         logger.info("Selected platform: %s", platform_selection.platform)
 
         bootstrap_status = bootstrap_project(perform_full_checks=not args.no_bootstrap)
@@ -237,6 +238,8 @@ def main(argv: Sequence[str] | None = None, input_func: Callable[[str], str] = i
             for missing_directory in bootstrap_status.environment.missing_directories:
                 logger.error("Missing directory: %s", missing_directory)
             return safe_exit(logger, 1, "Required directory check failed")
+
+        print_message("Bootstrap completed.")
 
         mode_config_path = _mode_config_path(platform_selection.analysis_mode)
         mode_config = load_json_file(mode_config_path)
@@ -261,16 +264,21 @@ def main(argv: Sequence[str] | None = None, input_func: Callable[[str], str] = i
         else:
             fallback_result = collect_fallback_data(mode=platform_selection.analysis_mode)
 
+        print_message(f"Fallback used: {'Yes' if fallback_result.get('fallback_activated') else 'No'}")
+
         if fallback_result.get("no_data_found"):
             print_message("No usable data was found. The application will exit safely.")
             return safe_exit(logger, 1, "No data found for analysis")
 
+        print_message("Analysis started.")
         analysis_result = run_identity_risk_engine(
             mode=platform_selection.analysis_mode,
             data_paths=data_paths,
             run_id=run_id,
         )
+        print_message("Analysis completed.")
         report_paths = write_reports(analysis_result)
+        print_message("Reports generated.")
 
         print_message(
             _format_final_summary(

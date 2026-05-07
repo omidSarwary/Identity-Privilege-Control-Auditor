@@ -4,6 +4,8 @@ from __future__ import annotations
 
 import logging
 
+from src.utils.console import print_message
+
 
 def safe_exit(logger: logging.Logger, code: int = 0, message: str = "Safe exit") -> int:
     """Log a controlled exit message and return the exit code.
@@ -18,4 +20,5 @@ def safe_exit(logger: logging.Logger, code: int = 0, message: str = "Safe exit")
         logger.warning(message)
     else:
         logger.error(message)
+    print_message(message)
     return code
