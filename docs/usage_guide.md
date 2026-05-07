@@ -21,7 +21,29 @@ python app.py --test
 python app.py --mode test
 ```
 
-In test mode the tool uses mock data and simulated logs only.
+In test mode the tool uses mock data and simulated logs only. These commands
+run the full Python pipeline, not the Linux or Windows collectors directly.
+
+If you want to test the sensors separately, run them directly:
+
+```bash
+bash bash/linux_identity_audit.sh --mode test
+powershell -NoProfile -ExecutionPolicy Bypass -File powershell/windows_identity_audit.ps1 -Mode Test
+```
+
+The sensor scripts may produce little or no terminal output because they write
+results to `data/collected/` and `logs/`. Confirm success by checking exit code
+`0` and validating the generated files.
+
+Validation examples:
+
+```bash
+python -m json.tool data/collected/linux_identity.json
+python -m json.tool data/collected/linux_policy.json
+Import-Csv data/collected/windows_identity.csv
+Import-Csv data/collected/windows_events.csv
+Import-Csv data/collected/windows_policy.csv
+```
 
 ## Production Mode
 

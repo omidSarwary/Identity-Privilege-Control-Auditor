@@ -50,12 +50,15 @@ are limited to reading, validating, correlating, and reporting.
 ### Recommended Setup
 
 1. Clone the repository.
-2. Create and activate a virtual environment.
+2. Create and activate a Python virtual environment manually.
 3. Install dependencies:
 
 ```bash
 python -m pip install -r requirements.txt
 ```
+
+The application checks environment and bootstrap state at startup, but it does
+not create a virtual environment or install packages automatically.
 
 ## Quick Start
 
@@ -101,6 +104,31 @@ In test mode, the pipeline runs end-to-end:
 - reporting
 - alerts
 - log generation
+
+`python app.py --test` and `python app.py --mode test` both exercise the full
+Python pipeline with mock data. They do not run the Linux or Windows collectors
+directly.
+
+The Bash and PowerShell sensors can also be tested directly:
+
+```bash
+bash bash/linux_identity_audit.sh --mode test
+powershell -NoProfile -ExecutionPolicy Bypass -File powershell/windows_identity_audit.ps1 -Mode Test
+```
+
+These sensor scripts may produce little terminal output because they write
+results to `data/collected/` and `logs/`. Verify success by checking exit code
+`0` and validating the generated files.
+
+Validation examples:
+
+```bash
+python -m json.tool data/collected/linux_identity.json
+python -m json.tool data/collected/linux_policy.json
+Import-Csv data/collected/windows_identity.csv
+Import-Csv data/collected/windows_events.csv
+Import-Csv data/collected/windows_policy.csv
+```
 
 ## Output Files
 

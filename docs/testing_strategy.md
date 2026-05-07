@@ -30,6 +30,27 @@ pipeline to run end-to-end without touching live logs or real system exports.
 Test mode is the preferred way to verify the full pipeline locally. It should
 produce reports and alerts from controlled evidence.
 
+`python app.py --test` and `python app.py --mode test` run the full Python
+pipeline with mock data. They do not invoke the Linux or Windows collectors
+directly.
+
+The Bash and PowerShell sensors can also be tested on their own:
+
+- `bash bash/linux_identity_audit.sh --mode test`
+- `powershell -NoProfile -ExecutionPolicy Bypass -File powershell/windows_identity_audit.ps1 -Mode Test`
+
+These sensor runs may write most of their evidence to `data/collected/` and
+`logs/`, so the terminal output can be short. Successful runs should be
+confirmed by exit code `0` and by validating the generated output files.
+
+Suggested file checks:
+
+- `python -m json.tool data/collected/linux_identity.json`
+- `python -m json.tool data/collected/linux_policy.json`
+- `Import-Csv data/collected/windows_identity.csv`
+- `Import-Csv data/collected/windows_events.csv`
+- `Import-Csv data/collected/windows_policy.csv`
+
 ## Manual Test Cases
 
 Useful manual checks include:
