@@ -23,9 +23,12 @@ def build_json_report_payload(analysis_result: Mapping[str, Any]) -> dict[str, A
     The JSON report stays deliberately compact so it remains easy to parse in
     later automation steps and in the final project hand-in.
     """
+    fallback_used = analysis_result.get("fallback_used")
     return {
         "run_id": analysis_result.get("run_id", "unknown"),
         "mode": analysis_result.get("mode", "test"),
+        "fallback_used": bool(fallback_used) if fallback_used is not None else None,
+        "fallback_reason": analysis_result.get("fallback_reason"),
         "summary": analysis_result.get("summary", {}),
         "findings": analysis_result.get("findings", []),
     }

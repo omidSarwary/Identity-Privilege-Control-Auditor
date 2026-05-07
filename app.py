@@ -196,6 +196,22 @@ def _format_final_summary(
     return "\n".join(lines)
 
 
+def _attach_report_metadata(
+    analysis_result: dict[str, object],
+    fallback_result: dict[str, object],
+) -> dict[str, object]:
+    """Attach report-only metadata to the analysis result.
+
+    The analysis output stays unchanged, but the reporting layer needs a clear
+    fallback marker so the console, text report, and JSON report describe the
+    same execution path.
+    """
+    report_result = dict(analysis_result)
+    report_result["fallback_used"] = bool(fallback_result.get("fallback_activated"))
+    report_result["fallback_reason"] = fallback_result.get("fallback_reason")
+    return report_result
+
+
 def main(argv: Sequence[str] | None = None, input_func: Callable[[str], str] = input) -> int:
     """Run the application orchestrator and return a controlled exit code.
 
@@ -290,7 +306,8 @@ def main(argv: Sequence[str] | None = None, input_func: Callable[[str], str] = i
             run_id=run_id,
         )
         print_message("Analysis completed.")
-        report_paths = write_reports(analysis_result)
+        report_analysis_result = _attach_report_metadata(analysis_result, fallback_result)
+        report_paths = write_reports(report_analysis_result)
         print_message("Reports generated.")
 
         print_message(

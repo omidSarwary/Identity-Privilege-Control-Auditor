@@ -222,3 +222,35 @@ def test_main_safe_exits_when_no_data_exists(monkeypatch) -> None:
     exit_code = app.main(["--test"], input_func=lambda _: "test")
 
     assert exit_code == 1
+
+
+def test_main_passes_fallback_metadata_to_report_writer(monkeypatch) -> None:
+    """The orchestrator should forward fallback status to the reporting layer."""
+    captured: dict[str, object] = {}
+    monkeypatch.setattr(app, "load_app_config", lambda: {"project_name": "NordSec", "version": "0.2.0", "default_mode": "test"})
+    monkeypatch.setattr(app, "bootstrap_project", lambda perform_full_checks=True: _bootstrap_status())
+    monkeypatch.setattr(app, "collect_linux_data", lambda mode: (_ for _ in ()).throw(AssertionError("linux collector should not run in test mode")))
+    monkeypatch.setattr(app, "collect_windows_data", lambda mode: (_ for _ in ()).throw(AssertionError("windows collector should not run in test mode")))
+    monkeypatch.setattr(
+        app,
+        "collect_fallback_data",
+        lambda mode: {
+            "fallback_activated": True,
+            "fallback_reason": "mockdata used",
+            "no_data_found": False,
+            "used_files": {"linux_identity": {"path": "tests/mockdata/linux_identity.json"}},
+        },
+    )
+    monkeypatch.setattr(app, "run_identity_risk_engine", lambda mode, data_paths, run_id: _mock_analysis_result(run_id, mode))
+    def _write_reports(analysis_result):
+        captured["analysis_result"] = analysis_result
+        return _mock_report_paths()
+
+    monkeypatch.setattr(app, "write_reports", _write_reports)
+    monkeypatch.setattr(app, "print_message", lambda message: None)
+
+    exit_code = app.main(["--test", "--no-bootstrap"], input_func=lambda _: "test")
+
+    assert exit_code == 0
+    assert captured["analysis_result"]["fallback_used"] is True
+    assert captured["analysis_result"]["fallback_reason"] == "mockdata used"

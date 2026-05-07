@@ -25,6 +25,14 @@ def _build_analysis_result() -> dict[str, object]:
     )
 
 
+def _report_ready_result(*, fallback_used: bool, fallback_reason: str) -> dict[str, object]:
+    """Build a report-ready analysis result with explicit fallback metadata."""
+    analysis_result = _build_analysis_result()
+    analysis_result["fallback_used"] = fallback_used
+    analysis_result["fallback_reason"] = fallback_reason
+    return analysis_result
+
+
 def test_report_files_are_created_from_analysis_result(tmp_path) -> None:
     """The writer should create every required artifact for one analysis run.
 
@@ -72,3 +80,29 @@ def test_critical_findings_are_written_to_critical_alert_log(tmp_path) -> None:
 
     assert "CRITICAL" in critical_log
     assert "disabled account" in critical_log.lower()
+
+
+def test_reports_show_fallback_used_when_metadata_is_true(tmp_path) -> None:
+    """Report output should reflect that fallback was used in the run."""
+    analysis_result = _report_ready_result(fallback_used=True, fallback_reason="mockdata used")
+
+    artifacts = write_reports(analysis_result, output_root=tmp_path)
+    text_report = artifacts["text_report"].read_text(encoding="utf-8")
+    payload = json.loads(artifacts["json_report"].read_text(encoding="utf-8"))
+
+    assert "Fallback used: Yes" in text_report
+    assert payload["fallback_used"] is True
+    assert payload["fallback_reason"] == "mockdata used"
+
+
+def test_reports_show_fallback_used_when_metadata_is_false(tmp_path) -> None:
+    """Report output should reflect when fallback was not needed."""
+    analysis_result = _report_ready_result(fallback_used=False, fallback_reason="collector output complete")
+
+    artifacts = write_reports(analysis_result, output_root=tmp_path)
+    text_report = artifacts["text_report"].read_text(encoding="utf-8")
+    payload = json.loads(artifacts["json_report"].read_text(encoding="utf-8"))
+
+    assert "Fallback used: No" in text_report
+    assert payload["fallback_used"] is False
+    assert payload["fallback_reason"] == "collector output complete"

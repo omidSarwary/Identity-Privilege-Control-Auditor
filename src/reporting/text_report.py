@@ -44,6 +44,14 @@ def _is_fallback_used(data_quality: Mapping[str, Any] | None) -> bool:
     return any(not source.get("loaded", False) or not source.get("valid", False) for source in data_quality.get("sources", {}).values())
 
 
+def _report_fallback_used(analysis_result: Mapping[str, Any]) -> bool:
+    """Resolve the report fallback flag with a safe fallback for older payloads."""
+    fallback_used = analysis_result.get("fallback_used")
+    if fallback_used is not None:
+        return bool(fallback_used)
+    return _is_fallback_used(analysis_result.get("data_quality", {}))
+
+
 def _source_lines(data_sources: Mapping[str, Mapping[str, Any]] | None) -> list[str]:
     """Format the source inventory so the report shows what evidence was used."""
     lines: list[str] = []
@@ -173,7 +181,7 @@ def build_text_report(analysis_result: Mapping[str, Any]) -> str:
         f"Platform selected: {mode}",
         "Data sources used:",
         *(_source_lines(data_sources) or ["- None"]),
-        f"Fallback used: {'Yes' if _is_fallback_used(data_quality) else 'No'}",
+        f"Fallback used: {'Yes' if _report_fallback_used(analysis_result) else 'No'}",
         "",
         "1. Executive Summary",
         f"Total findings: {len(findings)}",
