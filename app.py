@@ -14,7 +14,9 @@ from pathlib import Path
 from typing import Callable, Sequence
 
 from src.analysis.identity_risk_engine import run_identity_risk_engine
+from src.collectors.linux_collector import collect_linux_data
 from src.collectors.fallback_collector import collect_fallback_data
+from src.collectors.windows_collector import collect_windows_data
 from src.core.bootstrap import bootstrap_project, load_app_config
 from src.core.paths import (
     BASELINES_DIR,
@@ -77,6 +79,76 @@ def _build_data_paths(mode_config: dict[str, object]) -> dict[str, object]:
     data_paths = dict(mode_config.get("paths", {}))
     data_paths["baselines"] = str(BASELINES_DIR)
     return data_paths
+
+
+def _run_platform_collectors(platform_selection: object) -> list[dict[str, object]]:
+    """Run the approved collector modules for the selected platform.
+
+    The application uses the Linux Bash sensor for Linux runs, the PowerShell
+    sensor for Windows runs, and both collectors in test mode so the mock data
+    path can be validated without touching live logs.
+    """
+    platform = str(getattr(platform_selection, "platform", "")).strip().lower()
+    analysis_mode = str(getattr(platform_selection, "analysis_mode", "production")).strip().lower()
+
+    if platform == "linux":
+        return [collect_linux_data(mode=analysis_mode)]
+    if platform == "windows":
+        return [collect_windows_data(mode=analysis_mode)]
+
+    # Test mode validates both sensor adapters without changing live data.
+    return [
+        collect_linux_data(mode="test"),
+        collect_windows_data(mode="test"),
+    ]
+
+
+def _collectors_succeeded(collector_results: list[dict[str, object]]) -> bool:
+    """Return ``True`` when every collector completed and created its outputs."""
+    return all(bool(result.get("success")) for result in collector_results)
+
+
+def _collector_results_to_used_files(collector_results: list[dict[str, object]]) -> dict[str, dict[str, object]]:
+    """Translate collector output paths into the fallback-style summary format."""
+    used_files: dict[str, dict[str, object]] = {}
+    for result in collector_results:
+        if not result.get("success"):
+            continue
+        expected_outputs = result.get("expected_outputs", {})
+        if not isinstance(expected_outputs, dict):
+            continue
+        for name, path in expected_outputs.items():
+            path_obj = Path(str(path))
+            used_files[str(name)] = {
+                "path": str(path_obj),
+                "source_directory": str(path_obj.parent),
+                "valid": True,
+            }
+    return used_files
+
+
+def _build_collector_fallback_result(
+    *,
+    collector_results: list[dict[str, object]],
+    analysis_mode: str,
+) -> dict[str, object]:
+    """Build a fallback-style summary when platform collectors succeeded.
+
+    This keeps the console summary and reporting flow consistent without
+    invoking the fallback searcher unnecessarily.
+    """
+    used_files = _collector_results_to_used_files(collector_results)
+    return {
+        "mode": analysis_mode,
+        "fallback_activated": False,
+        "fallback_reason": "Platform collectors completed successfully.",
+        "searched_directories": [],
+        "used_files": used_files,
+        "missing_files": [],
+        "no_data_found": not bool(used_files),
+        "sources": {},
+        "payloads": {},
+    }
 
 
 def _format_final_summary(
@@ -151,7 +223,23 @@ def main(argv: Sequence[str] | None = None, input_func: Callable[[str], str] = i
         mode_config = load_json_file(mode_config_path)
         data_paths = _build_data_paths(mode_config)
 
-        fallback_result = collect_fallback_data(mode=platform_selection.analysis_mode)
+        collector_results = _run_platform_collectors(platform_selection)
+        for collector_result in collector_results:
+            logger.info(
+                "Collector result: platform=%s mode=%s success=%s missing_outputs=%s",
+                collector_result.get("platform", "unknown"),
+                collector_result.get("mode", platform_selection.analysis_mode),
+                bool(collector_result.get("success")),
+                ", ".join(str(item) for item in collector_result.get("missing_outputs", [])) or "none",
+            )
+
+        if _collectors_succeeded(collector_results):
+            fallback_result = _build_collector_fallback_result(
+                collector_results=collector_results,
+                analysis_mode=platform_selection.analysis_mode,
+            )
+        else:
+            fallback_result = collect_fallback_data(mode=platform_selection.analysis_mode)
 
         if fallback_result.get("no_data_found"):
             print_message("No usable data was found. The application will exit safely.")
