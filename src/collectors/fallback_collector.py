@@ -9,7 +9,7 @@ from __future__ import annotations
 
 import logging
 from pathlib import Path
-from typing import Any, Callable, Sequence
+from typing import Any, Callable, Mapping, Sequence
 
 from src.core.paths import DATA_COLLECTED_DIR, DATA_INCOMING_DIR, LOGDATA_DIR, TEST_MOCKDATA_DIR
 from src.parsers._common import EmptyFileError, FileMissingError, InvalidFormatError, ParserError
@@ -82,23 +82,16 @@ def _search_directories(mode: str) -> list[Path]:
     return directories
 
 
-def _find_source_path(filename: str, directories: Sequence[Path]) -> tuple[Path | None, Path | None]:
-    """Return the first readable source path and the directory that provided it."""
-    for directory in directories:
-        candidate = directory / filename
-        if candidate.exists() and candidate.is_file():
-            return candidate, directory
-    return None, None
-
-
 def _status_dict(
     *,
     path: Path | None,
     source_directory: Path | None,
     loaded: bool,
     valid: bool,
+    selected: bool = False,
     warnings: list[str] | None = None,
     errors: list[str] | None = None,
+    attempts: list[dict[str, Any]] | None = None,
 ) -> dict[str, Any]:
     """Build the per-source metadata returned by the fallback collector."""
     return {
@@ -106,8 +99,10 @@ def _status_dict(
         "source_directory": str(source_directory) if source_directory is not None else None,
         "loaded": loaded,
         "valid": valid,
+        "selected": selected,
         "warnings": list(warnings or []),
         "errors": list(errors or []),
+        "attempts": list(attempts or []),
     }
 
 
@@ -134,6 +129,35 @@ def _load_log_source(path: Path) -> list[str]:
     return load_text_log(path)
 
 
+def _attempt_source_load(
+    source_name: str,
+    spec: Mapping[str, Any],
+    candidate: Path,
+) -> tuple[Any, ValidationStatus | None, str | None]:
+    """Try to load one candidate path and return the outcome.
+
+    The collector intentionally evaluates one candidate at a time so invalid
+    files can be skipped and the search can continue to the next approved
+    directory for the same logical source.
+    """
+    try:
+        if spec["kind"] == "json":
+            payload, validation = _load_json_source(candidate, spec["validator"])
+        elif spec["kind"] == "csv":
+            payload, validation = _load_csv_source(candidate, spec["required_columns"], spec["validator"])
+        else:
+            payload = _load_log_source(candidate)
+            validation = ValidationStatus(valid=True)
+    except (FileMissingError, EmptyFileError, InvalidFormatError) as exc:
+        return None, None, str(exc)
+    except ParserError as exc:  # pragma: no cover - defensive fallback
+        return None, None, str(exc)
+
+    if validation.valid:
+        return payload, validation, None
+    return payload, validation, validation.errors[-1] if validation.errors else "validation failed"
+
+
 def collect_fallback_data(mode: str = "production") -> dict[str, Any]:
     """Locate and validate fallback data for one run.
 
@@ -155,77 +179,115 @@ def collect_fallback_data(mode: str = "production") -> dict[str, Any]:
     missing_files: list[str] = []
 
     for source_name, spec in KNOWN_SOURCE_SPECS.items():
-        path, source_directory = _find_source_path(spec["filename"], search_directories)
-        if path is None or source_directory is None:
-            LOGGER.warning("Fallback source missing: %s", spec["filename"])
+        attempts: list[dict[str, Any]] = []
+        selected_payload: Any = None
+        selected_path: Path | None = None
+        selected_directory: Path | None = None
+        selected_validation: ValidationStatus | None = None
+        selected = False
+
+        for directory in search_directories:
+            candidate = directory / spec["filename"]
+            if not candidate.exists() or not candidate.is_file():
+                attempts.append(
+                    {
+                        "path": str(candidate),
+                        "source_directory": str(directory),
+                        "loaded": False,
+                        "valid": False,
+                        "selected": False,
+                        "errors": [f"{spec['filename']}: file not found"],
+                    }
+                )
+                continue
+
+            LOGGER.info("Fallback source candidate found: %s", candidate)
+            payload, validation, error_message = _attempt_source_load(source_name, spec, candidate)
+            if validation is None:
+                LOGGER.warning("Fallback source skipped: %s (%s)", candidate, error_message)
+                attempts.append(
+                    {
+                        "path": str(candidate),
+                        "source_directory": str(directory),
+                        "loaded": False,
+                        "valid": False,
+                        "selected": False,
+                        "errors": [error_message],
+                    }
+                )
+                continue
+
+            if validation.valid:
+                LOGGER.info("Fallback source selected: %s", candidate)
+                selected = True
+                selected_payload = payload
+                selected_path = candidate
+                selected_directory = directory
+                selected_validation = validation
+                attempts.append(
+                    {
+                        "path": str(candidate),
+                        "source_directory": str(directory),
+                        "loaded": True,
+                        "valid": True,
+                        "selected": True,
+                        "warnings": list(validation.warnings),
+                        "errors": list(validation.errors),
+                    }
+                )
+                break
+
+            invalid_reason = validation.errors[-1] if validation.errors else "validation failed"
+            LOGGER.warning("Fallback source invalid and skipped: %s (%s)", candidate, invalid_reason)
+            attempts.append(
+                {
+                    "path": str(candidate),
+                    "source_directory": str(directory),
+                    "loaded": True,
+                    "valid": False,
+                    "selected": False,
+                    "warnings": list(validation.warnings),
+                    "errors": list(validation.errors),
+                }
+            )
+
+        if selected and selected_path is not None and selected_directory is not None and selected_validation is not None:
+            source_status = _status_dict(
+                path=selected_path,
+                source_directory=selected_directory,
+                loaded=True,
+                valid=True,
+                selected=True,
+                warnings=selected_validation.warnings,
+                errors=selected_validation.errors,
+                attempts=attempts,
+            )
+            sources[source_name] = source_status
+            payloads[source_name] = selected_payload
+            used_files[source_name] = {
+                "path": str(selected_path),
+                "source_directory": str(selected_directory),
+                "valid": True,
+            }
+        else:
+            LOGGER.warning("Fallback source missing after search: %s", spec["filename"])
             sources[source_name] = _status_dict(
                 path=None,
                 source_directory=None,
                 loaded=False,
                 valid=False,
+                selected=False,
                 warnings=[],
                 errors=[f"{spec['filename']}: file not found"],
+                attempts=attempts,
             )
             missing_files.append(spec["filename"])
-            continue
 
-        LOGGER.info("Fallback source selected: %s", path)
-        try:
-            if spec["kind"] == "json":
-                payload, validation = _load_json_source(path, spec["validator"])
-            elif spec["kind"] == "csv":
-                payload, validation = _load_csv_source(path, spec["required_columns"], spec["validator"])
-            else:
-                payload = _load_log_source(path)
-                validation = ValidationStatus(valid=True)
-        except (FileMissingError, EmptyFileError, InvalidFormatError) as exc:
-            LOGGER.error("Fallback source could not be loaded: %s", exc)
-            sources[source_name] = _status_dict(
-                path=path,
-                source_directory=source_directory,
-                loaded=False,
-                valid=False,
-                warnings=[],
-                errors=[str(exc)],
-            )
-            missing_files.append(spec["filename"])
-            continue
-        except ParserError as exc:  # pragma: no cover - defensive fallback
-            LOGGER.error("Fallback parser error for %s: %s", path, exc)
-            sources[source_name] = _status_dict(
-                path=path,
-                source_directory=source_directory,
-                loaded=False,
-                valid=False,
-                warnings=[],
-                errors=[str(exc)],
-            )
-            missing_files.append(spec["filename"])
-            continue
-
-        source_status = _status_dict(
-            path=path,
-            source_directory=source_directory,
-            loaded=True,
-            valid=validation.valid,
-            warnings=validation.warnings,
-            errors=validation.errors,
-        )
-        sources[source_name] = source_status
-        payloads[source_name] = payload
-        used_files[source_name] = {
-            "path": str(path),
-            "source_directory": str(source_directory),
-            "valid": validation.valid,
-        }
-
-    no_data_found = not any(details.get("loaded") for details in sources.values())
+    no_data_found = not used_files
     fallback_activated = any(
-        details.get("loaded") and details.get("source_directory") != str(DATA_COLLECTED_DIR)
+        details.get("selected") and details.get("source_directory") != str(DATA_COLLECTED_DIR)
         for details in sources.values()
-    ) or bool(missing_files) or no_data_found or any(
-        details.get("loaded") and not details.get("valid", False) for details in sources.values()
-    )
+    ) or bool(missing_files) or no_data_found
 
     if no_data_found:
         fallback_reason = "No fallback data was found in any configured directory."
