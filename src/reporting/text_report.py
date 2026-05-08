@@ -166,6 +166,7 @@ def build_text_report(analysis_result: Mapping[str, Any]) -> str:
     """
     run_id = str(analysis_result.get("run_id", "unknown"))
     mode = str(analysis_result.get("mode", "test"))
+    selected_platform = str(analysis_result.get("selected_platform") or mode)
     data_sources = analysis_result.get("data_sources", {})
     data_quality = analysis_result.get("data_quality", {})
     findings = list(analysis_result.get("findings", []))
@@ -178,7 +179,7 @@ def build_text_report(analysis_result: Mapping[str, Any]) -> str:
         f"Run ID: {run_id}",
         f"Date: {_format_run_date(run_id)}",
         f"Mode: {mode}",
-        f"Platform selected: {mode}",
+        f"Platform selected: {selected_platform}",
         "Data sources used:",
         *(_source_lines(data_sources) or ["- None"]),
         f"Fallback used: {'Yes' if _report_fallback_used(analysis_result) else 'No'}",

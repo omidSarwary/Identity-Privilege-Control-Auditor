@@ -16,6 +16,7 @@ EXPECTED_OUTPUTS = {
     "linux_identity": DATA_COLLECTED_DIR / "linux_identity.json",
     "linux_policy": DATA_COLLECTED_DIR / "linux_policy.json",
 }
+CONTROLLED_WARNING_RETURN_CODES = {2}
 
 
 def _normalized_mode(mode: str) -> str:
@@ -46,6 +47,8 @@ def _collector_reason(command_result: dict[str, Any], missing_outputs: list[str]
         return "permission denied; run with sudo/root if protected files must be inspected"
     if "no such file" in stderr or "file not found" in stderr:
         return "file not found"
+    if returncode in CONTROLLED_WARNING_RETURN_CODES:
+        return "collector completed with warnings"
     if missing_outputs:
         return "output file missing"
     if returncode not in (0, None):
@@ -108,7 +111,11 @@ def collect_linux_data(
     command_result = run_command(command, cwd=PROJECT_ROOT, timeout=timeout)
 
     missing_outputs = _verify_outputs(EXPECTED_OUTPUTS)
-    success = not command_result.timed_out and not missing_outputs
+    success = (
+        not command_result.timed_out
+        and not missing_outputs
+        and (command_result.returncode == 0 or command_result.returncode in CONTROLLED_WARNING_RETURN_CODES)
+    )
     reason = _collector_reason(command_result.to_dict(), missing_outputs)
     output_statuses = _build_output_statuses(missing_outputs, reason)
     if success and command_result.succeeded:

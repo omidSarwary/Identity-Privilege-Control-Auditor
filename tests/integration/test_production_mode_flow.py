@@ -158,14 +158,36 @@ def test_windows_production_mode_shows_manual_linux_guidance_and_safe_exits(monk
     assert any("No valid evidence files were found." in message for message in captured_messages)
 
 
-def test_windows_production_mode_uses_collector_outputs_when_command_returns_warning(monkeypatch, tmp_path) -> None:
-    """A warning exit code should not force fallback when the collector wrote all outputs."""
+def test_windows_production_mode_prefers_collector_outputs_over_incoming(monkeypatch, tmp_path) -> None:
+    """Fresh collector outputs should be passed explicitly to analysis."""
     fixed_run_id = "20260507-130001"
     captured_messages: list[str] = []
+    captured_data_paths: dict[str, object] = {}
+    incoming_dir = tmp_path / "data" / "incoming"
+    collected_dir = tmp_path / "data" / "collected"
+    incoming_dir.mkdir(parents=True)
+    collected_dir.mkdir(parents=True)
+    incoming_identity = incoming_dir / "windows_identity.csv"
+    collected_identity = collected_dir / "windows_identity.csv"
+    incoming_identity.write_text("stale", encoding="utf-8")
+    collected_identity.write_text("fresh", encoding="utf-8")
 
     monkeypatch.setattr(app, "create_run_id", lambda: fixed_run_id)
-    monkeypatch.setattr(app, "load_app_config", lambda: {"project_name": "NordSec Identity & Privilege Control Auditor", "version": "0.2.0"})
+    monkeypatch.setattr(
+        app,
+        "load_app_config",
+        lambda: {
+            "project_name": "NordSec Identity & Privilege Control Auditor",
+            "version": "0.2.0",
+            "paths": {"incoming": str(incoming_dir), "collected": str(collected_dir)},
+        },
+    )
     monkeypatch.setattr(app, "bootstrap_project", lambda perform_full_checks=True: _bootstrap_status())
+    monkeypatch.setattr(
+        app,
+        "load_json_file",
+        lambda path: {"paths": {"incoming": str(incoming_dir), "collected": str(collected_dir)}},
+    )
     monkeypatch.setattr(
         app,
         "collect_linux_data",
@@ -179,11 +201,11 @@ def test_windows_production_mode_uses_collector_outputs_when_command_returns_war
             "mode": mode,
             "success": True,
             "missing_outputs": [],
-            "expected_outputs": {"windows_identity": str(tmp_path / "windows_identity.csv")},
-            "command": {"returncode": 1, "stderr_summary": "The Security log could not be read."},
-            "reason": "collector exited with code 1",
+            "expected_outputs": {"windows_identity": str(collected_identity)},
+            "command": {"returncode": 0, "stderr_summary": ""},
+            "reason": "completed successfully",
             "output_statuses": {
-                "windows_identity": {"status": "collected", "reason": "output file created", "path": str(tmp_path / "windows_identity.csv")}
+                "windows_identity": {"status": "collected", "reason": "output file created", "path": str(collected_identity)}
             },
         },
     )
@@ -192,7 +214,11 @@ def test_windows_production_mode_uses_collector_outputs_when_command_returns_war
         "collect_fallback_data",
         lambda mode, **kwargs: (_ for _ in ()).throw(AssertionError("fallback should not run when collector outputs are usable")),
     )
-    monkeypatch.setattr(app, "run_identity_risk_engine", lambda mode, data_paths, run_id: _analysis_result(run_id, mode))
+    def _run_identity_risk_engine(mode, data_paths, run_id):
+        captured_data_paths.update(data_paths)
+        return _analysis_result(run_id, mode)
+
+    monkeypatch.setattr(app, "run_identity_risk_engine", _run_identity_risk_engine)
     monkeypatch.setattr(app, "write_reports", lambda analysis_result: write_reports(analysis_result, output_root=tmp_path))
     monkeypatch.setattr(app, "print_message", lambda message: captured_messages.append(message))
     monkeypatch.setattr(safe_exit_module, "print_message", lambda message: captured_messages.append(message))
@@ -200,6 +226,6 @@ def test_windows_production_mode_uses_collector_outputs_when_command_returns_war
     exit_code = app.main(["--mode", "windows", "--no-bootstrap"], input_func=lambda _: "windows")
 
     assert exit_code == 0
-    assert any("Collector warning:" in message for message in captured_messages)
     assert any("Fallback used: No." in message for message in captured_messages)
+    assert captured_data_paths["windows_identity"] == str(collected_identity)
     assert _report_paths(tmp_path)["json_report"].exists()

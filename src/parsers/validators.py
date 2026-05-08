@@ -116,8 +116,12 @@ def validate_windows_events(rows: list[dict[str, Any]]) -> ValidationStatus:
     """Validate the Windows event CSV rows.
 
     Expects parsed event rows and verifies the event fields needed to link
-    failures back to identities and network sources.
+    failures back to identities and network sources. A header-only events file
+    is valid evidence that no matching events were observed in the selected
+    bounded collection window.
     """
+    if not rows:
+        return ValidationStatus(valid=True)
     required_columns = ["ComputerName", "TimeCreated", "EventId", "TargetUserName", "IpAddress", "EventType"]
     return _validate_column_rows(rows, required_columns, "windows_events")
 

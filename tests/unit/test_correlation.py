@@ -140,13 +140,13 @@ def test_disabled_account_with_failed_login_is_critical() -> None:
 
 
 def test_inactive_privileged_account_is_high() -> None:
-    """A privileged account with no activity should be treated as high risk.
+    """A privileged account with explicit inactivity evidence should be high risk.
 
-    This checks the standing-privilege scenario where access exists but use is
-    not observed, which still matters for the report.
+    This protects the evidence rule that inactivity must come from collected
+    identity data, not from an empty authentication event window.
     """
     inputs = _load_inputs()
-    focus_records = [_get_record(inputs["records"], "adm_svc_win")]
+    focus_records = [_get_record(inputs["records"], "svc_archive")]
 
     findings = detect_anomalies(
         focus_records,
@@ -155,9 +155,192 @@ def test_inactive_privileged_account_is_high() -> None:
         approved_service_accounts=inputs["approved_service_accounts"],
     )
 
-    inactive_finding = next(finding for finding in findings if finding["identity"] == "adm_svc_win")
+    inactive_finding = next(
+        finding
+        for finding in findings
+        if finding["identity"] == "svc_archive" and "inactive account" in finding["finding"].lower()
+    )
     assert inactive_finding["risk_level"] == RiskLevel.HIGH.value
     assert "inactive account" in inactive_finding["finding"].lower()
+
+
+def test_linux_active_sudo_without_auth_events_is_not_inactive() -> None:
+    """No auth events in the bounded window must not imply inactivity."""
+    linux_identity = {
+        "users": [
+            {
+                "username": "active_sudo",
+                "enabled": True,
+                "privileges": ["sudo"],
+                "is_inactive": False,
+                "last_login": "2026-05-08T08:00:00Z",
+            }
+        ],
+        "sudo_users": ["active_sudo"],
+        "auth_events": [],
+    }
+    records = normalize_identities(linux_identity, [])
+    records = correlate_identity_privileges(records, [], [], [])
+    records = correlate_events_to_identities(records, linux_identity["auth_events"], [])
+
+    findings = detect_anomalies(records, approved_linux_sudoers=[], approved_windows_admins=[], approved_service_accounts=[])
+
+    assert not any("inactive account" in finding["finding"].lower() for finding in findings)
+
+
+def test_linux_inactive_sudo_with_collected_evidence_is_high() -> None:
+    """Explicit Linux inactivity evidence should still trigger the HIGH rule."""
+    linux_identity = {
+        "users": [
+            {
+                "username": "inactive_sudo",
+                "enabled": True,
+                "privileges": ["sudo"],
+                "is_inactive": True,
+                "last_login": "",
+            }
+        ],
+        "sudo_users": ["inactive_sudo"],
+        "auth_events": [],
+    }
+    records = normalize_identities(linux_identity, [])
+    records = correlate_identity_privileges(records, [], [], [])
+    records = correlate_events_to_identities(records, linux_identity["auth_events"], [])
+
+    findings = detect_anomalies(records, approved_linux_sudoers=[], approved_windows_admins=[], approved_service_accounts=[])
+
+    assert any(
+        finding["identity"] == "inactive_sudo" and finding["finding"] == "Inactive account with privileges"
+        for finding in findings
+    )
+
+
+def test_linux_inactivity_fields_are_preserved_by_normalization() -> None:
+    """Linux last-login and inactivity evidence should survive normalization."""
+    linux_identity = {
+        "users": [
+            {
+                "username": "audit_user",
+                "enabled": True,
+                "privileges": ["sudo"],
+                "is_inactive": False,
+                "last_login": "Sat Feb 7 2026",
+            }
+        ],
+        "sudo_users": [],
+    }
+
+    record = normalize_identities(linux_identity, [])[0]
+
+    assert record["is_inactive"] is False
+    assert record["last_login"] == "Sat Feb 7 2026"
+    assert "sudo" in record["privileges"]
+
+
+def test_linux_user_level_privileges_are_merged_without_sudo_users() -> None:
+    """The Linux user-level privileges list should be enough to mark sudo."""
+    linux_identity = {
+        "users": [
+            {
+                "username": "row_sudo",
+                "enabled": True,
+                "privileges": ["sudo"],
+                "is_inactive": False,
+            }
+        ],
+        "sudo_users": [],
+    }
+
+    record = normalize_identities(linux_identity, [])[0]
+
+    assert record["privileges"] == ["sudo"]
+
+
+def test_service_account_baseline_does_not_approve_linux_sudo() -> None:
+    """Service account approval must not suppress an unapproved sudo finding."""
+    linux_identity = {
+        "users": [{"username": "svc_backup", "enabled": True, "privileges": ["sudo"], "is_inactive": False}],
+        "sudo_users": ["svc_backup"],
+        "auth_events": [],
+    }
+    records = normalize_identities(linux_identity, [])
+    records = correlate_identity_privileges(
+        records,
+        approved_linux_sudoers=[],
+        approved_windows_admins=[],
+        approved_service_accounts=[{"username": "svc_backup"}],
+    )
+
+    findings = detect_anomalies(records, approved_linux_sudoers=[], approved_windows_admins=[], approved_service_accounts=[{"username": "svc_backup"}])
+
+    assert any(finding["finding"] == "Unapproved Linux sudo user" for finding in findings)
+
+
+def test_service_account_baseline_does_not_approve_windows_admin() -> None:
+    """Service account approval must not suppress an unapproved Windows admin finding."""
+    rows = [
+        {
+            "Username": "svc_backup",
+            "Enabled": "True",
+            "IsLocalAdmin": "True",
+            "LastLogon": "2026-05-08T09:00:00Z",
+        }
+    ]
+    records = normalize_identities({}, rows)
+    records = correlate_identity_privileges(
+        records,
+        approved_linux_sudoers=[],
+        approved_windows_admins=[],
+        approved_service_accounts=[{"username": "svc_backup"}],
+    )
+
+    findings = detect_anomalies(records, approved_linux_sudoers=[], approved_windows_admins=[], approved_service_accounts=[{"username": "svc_backup"}])
+
+    assert any(finding["finding"] == "Unapproved Windows administrators member" for finding in findings)
+
+
+def test_approved_privileged_baselines_still_suppress_unapproved_findings() -> None:
+    """Approved sudo and Windows admin baselines should still suppress findings."""
+    linux_identity = {
+        "users": [{"username": "ops_backup", "enabled": True, "privileges": ["sudo"], "is_inactive": False}],
+        "sudo_users": ["ops_backup"],
+        "auth_events": [],
+    }
+    rows = [{"Username": "adm_svc_win", "Enabled": "True", "IsLocalAdmin": "True", "LastLogon": ""}]
+    records = normalize_identities(linux_identity, rows)
+    records = correlate_identity_privileges(
+        records,
+        approved_linux_sudoers=[{"username": "ops_backup"}],
+        approved_windows_admins=[{"username": "adm_svc_win"}],
+        approved_service_accounts=[],
+    )
+
+    findings = detect_anomalies(
+        records,
+        approved_linux_sudoers=[{"username": "ops_backup"}],
+        approved_windows_admins=[{"username": "adm_svc_win"}],
+        approved_service_accounts=[],
+    )
+
+    assert not any(finding["finding"] == "Unapproved Linux sudo user" for finding in findings)
+    assert not any(finding["finding"] == "Unapproved Windows administrators member" for finding in findings)
+
+
+def test_ssh_root_login_with_no_privileged_activity_does_not_claim_activity() -> None:
+    """PermitRootLogin alone must not create a CRITICAL observed-activity finding."""
+    linux_identity = {
+        "users": [{"username": "sudo_user", "enabled": True, "privileges": ["sudo"], "is_inactive": False}],
+        "sudo_users": ["sudo_user"],
+        "auth_events": [],
+    }
+    linux_policy = {"policy": {"ssh_policy": {"permit_root_login": "yes", "password_authentication": "no", "pubkey_authentication": "yes"}}}
+    records = normalize_identities(linux_identity, [])
+    records = correlate_identity_privileges(records, [], [], [])
+    records = correlate_events_to_identities(records, [], [])
+
+    findings = detect_anomalies(records, linux_policy=linux_policy, approved_linux_sudoers=[])
+
+    assert not any("privileged activity observed" in finding["finding"].lower() for finding in findings)
 
 
 def test_windows_firewall_disabled_is_system_level_only() -> None:

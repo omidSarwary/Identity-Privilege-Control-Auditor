@@ -124,9 +124,14 @@ def detect_anomalies(
     linux_policy_map = (linux_policy or {}).get("policy", linux_policy or {})
     all_events = _collect_all_events(normalized_identities)
     any_privileged_activity = any(
-        "local_admin" in {str(item).lower() for item in (identity.get("privileges") or [])}
-        or "sudo" in {str(item).lower() for item in (identity.get("privileges") or [])}
+        event.get("event_type") in {"successful_login", "failed_login"}
+        and str(event.get("target_user") or "").strip()
+        and (
+            "sudo" in {str(item).lower() for item in (identity.get("privileges") or [])}
+            or "local_admin" in {str(item).lower() for item in (identity.get("privileges") or [])}
+        )
         for identity in normalized_identities or []
+        for event in identity.get("events", [])
     )
 
     # These findings describe the platform or policy state for the entire run,
@@ -213,12 +218,11 @@ def detect_anomalies(
         username = str(record.get("identity") or "unknown")
         privileges = {str(item).lower() for item in record.get("privileges", [])}
         events = list(record.get("events", []))
-        baseline_match = bool(record.get("baseline_match", False))
         identity_findings: list[dict[str, str]] = []
 
         # Windows local admin membership is checked against the approved list so
         # that standing privilege only becomes a finding when it is not expected.
-        if not baseline_match and "local_admin" in privileges:
+        if "local_admin" in privileges and not bool(record.get("windows_admin_approved", False)):
             finding = unauthorized_windows_admin(
                 {"username": username, "is_local_admin": True},
                 approved_admins=approved_windows,
@@ -230,7 +234,7 @@ def detect_anomalies(
 
         # Linux sudo accounts are validated separately because the approved
         # sudo baseline is a distinct control from Windows admin membership.
-        if not baseline_match and "sudo" in privileges:
+        if "sudo" in privileges and not bool(record.get("linux_sudo_approved", False)):
             finding = unauthorized_linux_sudo_user(
                 {"username": username, "privileges": ["sudo"]},
                 approved_sudoers=approved_linux,
@@ -244,14 +248,14 @@ def detect_anomalies(
             event for event in events if str(event.get("event_type") or "").lower() == "failed_login"
         ]
 
-        # A privileged account with no observed sign-in activity is treated as
-        # inactive for reporting purposes because standing privilege without use
-        # is an operational risk in the baseline model.
-        if privileges and not failed_logins:
+        # Inactivity is only reported when the identity source explicitly says
+        # the account is inactive. A quiet bounded log window is not enough
+        # evidence to claim account inactivity.
+        if privileges and bool(record.get("is_inactive", False)):
             finding = inactive_account_with_privileges(
                 {
                     "username": username,
-                    "is_inactive": True,
+                    "is_inactive": record.get("is_inactive"),
                     "is_local_admin": "local_admin" in privileges,
                     "privileges": list(privileges),
                 },

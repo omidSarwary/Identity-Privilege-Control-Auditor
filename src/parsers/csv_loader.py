@@ -26,13 +26,14 @@ def _normalize_header_name(value: str) -> str:
     return cleaned
 
 
-def load_csv_file(path: Path, required_columns: list[str]) -> list[dict]:
+def load_csv_file(path: Path, required_columns: list[str], *, allow_empty_rows: bool = False) -> list[dict]:
     """Load a CSV file and return its rows as dictionaries.
 
     Expects a path to a CSV file and a list of required header names. The
     function validates the headers before returning data so the rest of the
     pipeline only sees well-formed rows, which is important for risk
-    correlation and baseline matching.
+    correlation and baseline matching. Event sources may explicitly allow a
+    header-only file to represent an empty but valid collection window.
     """
     try:
         content = read_text_file(path, encoding="utf-8-sig")
@@ -66,7 +67,7 @@ def load_csv_file(path: Path, required_columns: list[str]) -> list[dict]:
         }
         rows.append(normalized_row)
 
-    if not rows:
+    if not rows and not allow_empty_rows:
         LOGGER.error("CSV file contains no data rows: %s", path)
         raise EmptyFileError(f"CSV file contains no data rows: {path}")
 

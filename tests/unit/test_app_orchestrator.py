@@ -359,6 +359,7 @@ def test_main_passes_fallback_metadata_to_report_writer(monkeypatch) -> None:
     assert exit_code == 0
     assert captured["analysis_result"]["fallback_used"] is True
     assert captured["analysis_result"]["fallback_reason"] == "mockdata used"
+    assert captured["analysis_result"]["selected_platform"] == "test"
 
 
 def test_main_reports_fallback_reason_for_incomplete_collection(monkeypatch) -> None:

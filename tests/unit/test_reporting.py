@@ -33,6 +33,14 @@ def _report_ready_result(*, fallback_used: bool, fallback_reason: str) -> dict[s
     return analysis_result
 
 
+def _platform_report_result(selected_platform: str) -> dict[str, object]:
+    """Build report data with an explicit selected platform."""
+    analysis_result = _report_ready_result(fallback_used=False, fallback_reason="collector output complete")
+    analysis_result["mode"] = "test" if selected_platform == "test" else "production"
+    analysis_result["selected_platform"] = selected_platform
+    return analysis_result
+
+
 def test_report_files_are_created_from_analysis_result(tmp_path) -> None:
     """The writer should create every required artifact for one analysis run.
 
@@ -106,3 +114,41 @@ def test_reports_show_fallback_used_when_metadata_is_false(tmp_path) -> None:
     assert "Fallback used: No" in text_report
     assert payload["fallback_used"] is False
     assert payload["fallback_reason"] == "collector output complete"
+
+
+def test_text_and_json_reports_include_windows_selected_platform(tmp_path) -> None:
+    """Production report metadata should distinguish platform from mode."""
+    analysis_result = _platform_report_result("windows")
+
+    artifacts = write_reports(analysis_result, output_root=tmp_path)
+    text_report = artifacts["text_report"].read_text(encoding="utf-8")
+    payload = json.loads(artifacts["json_report"].read_text(encoding="utf-8"))
+
+    assert "Mode: production" in text_report
+    assert "Platform selected: windows" in text_report
+    assert payload["mode"] == "production"
+    assert payload["selected_platform"] == "windows"
+
+
+def test_text_and_json_reports_include_linux_selected_platform(tmp_path) -> None:
+    """Linux production reports should show the selected Linux platform."""
+    analysis_result = _platform_report_result("linux")
+
+    artifacts = write_reports(analysis_result, output_root=tmp_path)
+    text_report = artifacts["text_report"].read_text(encoding="utf-8")
+    payload = json.loads(artifacts["json_report"].read_text(encoding="utf-8"))
+
+    assert "Platform selected: linux" in text_report
+    assert payload["selected_platform"] == "linux"
+
+
+def test_text_and_json_reports_include_test_selected_platform(tmp_path) -> None:
+    """Test reports should keep selected platform explicit as test."""
+    analysis_result = _platform_report_result("test")
+
+    artifacts = write_reports(analysis_result, output_root=tmp_path)
+    text_report = artifacts["text_report"].read_text(encoding="utf-8")
+    payload = json.loads(artifacts["json_report"].read_text(encoding="utf-8"))
+
+    assert "Platform selected: test" in text_report
+    assert payload["selected_platform"] == "test"

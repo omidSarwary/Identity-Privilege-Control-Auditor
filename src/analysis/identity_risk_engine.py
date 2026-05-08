@@ -261,6 +261,7 @@ def _load_csv_source(
     *,
     extra_candidates: Sequence[str] = (),
     required: bool = True,
+    allow_empty_rows: bool = False,
 ) -> tuple[list[dict[str, Any]], dict[str, Any], dict[str, Any]]:
     """Load and validate one CSV source.
 
@@ -280,7 +281,7 @@ def _load_csv_source(
         LOGGER.warning("%s missing", source_name)
     else:
         try:
-            rows = load_csv_file(path, list(required_columns))
+            rows = load_csv_file(path, list(required_columns), allow_empty_rows=allow_empty_rows)
             loaded = True
         except (FileMissingError, EmptyFileError, InvalidFormatError) as exc:
             errors.append(f"{source_name}: {exc}")
@@ -443,6 +444,7 @@ def load_analysis_inputs(mode: str, data_paths: dict) -> dict:
         validate_windows_events,
         extra_candidates=("windows/windows_events.csv",),
         required=True,
+        allow_empty_rows=True,
     )
     windows_policy_rows, windows_policy_quality, _ = _load_csv_source(
         mode,

@@ -160,6 +160,29 @@ def _collector_results_to_used_files(collector_results: list[dict[str, object]])
     return used_files
 
 
+def _apply_collector_output_paths(
+    data_paths: dict[str, object],
+    collector_results: list[dict[str, object]],
+) -> dict[str, object]:
+    """Prefer fresh collector outputs when a platform collector succeeded.
+
+    The analysis engine resolves explicit source keys before generic
+    directories. Adding the successful collector outputs here prevents older
+    manual files in ``data/incoming`` from being analyzed while the console says
+    fresh collector evidence was used.
+    """
+    updated_paths = dict(data_paths)
+    for result in collector_results:
+        if not result.get("success"):
+            continue
+        expected_outputs = result.get("expected_outputs", {})
+        if not isinstance(expected_outputs, dict):
+            continue
+        for source_name, path in expected_outputs.items():
+            updated_paths[str(source_name)] = str(path)
+    return updated_paths
+
+
 def _build_collector_fallback_result(
     *,
     collector_results: list[dict[str, object]],
@@ -380,6 +403,8 @@ def _format_final_summary(
 def _attach_report_metadata(
     analysis_result: dict[str, object],
     fallback_result: dict[str, object],
+    *,
+    selected_platform: str,
 ) -> dict[str, object]:
     """Attach report-only metadata to the analysis result.
 
@@ -390,6 +415,7 @@ def _attach_report_metadata(
     report_result = dict(analysis_result)
     report_result["fallback_used"] = bool(fallback_result.get("fallback_activated"))
     report_result["fallback_reason"] = fallback_result.get("fallback_reason")
+    report_result["selected_platform"] = selected_platform
     return report_result
 
 
@@ -494,6 +520,7 @@ def main(argv: Sequence[str] | None = None, input_func: Callable[[str], str] = i
                 collector_results=collector_results,
                 analysis_mode=platform_selection.analysis_mode,
             )
+            data_paths = _apply_collector_output_paths(data_paths, collector_results)
         else:
             fallback_result = collect_fallback_data(mode=platform_selection.analysis_mode)
 
@@ -529,7 +556,11 @@ def main(argv: Sequence[str] | None = None, input_func: Callable[[str], str] = i
             logger.exception("Analysis failed: %s", exc)
             return safe_exit(logger, 1, f"Analysis failed: {str(exc).splitlines()[0] or 'unknown error, see log file'}")
         print_message(format_section_title(4, 6, "Analysis completed."))
-        report_analysis_result = _attach_report_metadata(analysis_result, fallback_result)
+        report_analysis_result = _attach_report_metadata(
+            analysis_result,
+            fallback_result,
+            selected_platform=platform_selection.platform,
+        )
         print_message(format_section_title(5, 6, "Report generation started."))
         try:
             report_paths = write_reports(report_analysis_result)

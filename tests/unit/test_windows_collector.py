@@ -132,8 +132,8 @@ def test_collect_windows_data_summarizes_access_denied(monkeypatch, tmp_path) ->
     assert result["output_statuses"]["windows_identity"]["status"] == "failed"
 
 
-def test_collect_windows_data_keeps_outputs_when_command_warns(monkeypatch, tmp_path) -> None:
-    """Windows outputs should stay usable when the command returns a warning exit code."""
+def test_collect_windows_data_rejects_stale_outputs_when_command_fails(monkeypatch, tmp_path) -> None:
+    """A fatal PowerShell failure must not be masked by old output files."""
     identity_path = tmp_path / "windows_identity.csv"
     events_path = tmp_path / "windows_events.csv"
     policy_path = tmp_path / "windows_policy.csv"
@@ -157,9 +157,9 @@ def test_collect_windows_data_keeps_outputs_when_command_warns(monkeypatch, tmp_
         "run_command",
         lambda command, **kwargs: CommandResult(
             command=tuple(command),
-            returncode=1,
-            stdout="completed with warnings",
-            stderr="The Security log could not be read.",
+            returncode=127,
+            stdout="",
+            stderr="powershell not found",
             timed_out=False,
             started_at=0.0,
             finished_at=1.0,
@@ -168,6 +168,7 @@ def test_collect_windows_data_keeps_outputs_when_command_warns(monkeypatch, tmp_
 
     result = windows_collector.collect_windows_data(mode="production")
 
-    assert result["success"] is True
-    assert result["command"]["returncode"] == 1
+    assert result["success"] is False
+    assert result["command"]["returncode"] == 127
     assert result["missing_outputs"] == []
+    assert result["reason"] == "command unavailable"

@@ -6,6 +6,7 @@ import pytest
 
 from src.parsers._common import EmptyFileError, FileMissingError, InvalidFormatError
 from src.parsers.csv_loader import load_csv_file
+from src.parsers.validators import validate_windows_events
 
 
 def test_load_csv_file_valid(tmp_path) -> None:
@@ -72,6 +73,35 @@ def test_load_csv_file_missing_required_column(tmp_path) -> None:
 
     with pytest.raises(InvalidFormatError):
         load_csv_file(path, ["username", "reason", "owner", "approved_until"])
+
+
+def test_header_only_windows_events_csv_loads_as_zero_events(tmp_path) -> None:
+    """A valid header-only Windows events file should mean zero matched events."""
+    path = tmp_path / "windows_events.csv"
+    path.write_text("ComputerName,TimeCreated,EventId,TargetUserName,IpAddress,EventType\n", encoding="utf-8")
+
+    rows = load_csv_file(
+        path,
+        ["ComputerName", "TimeCreated", "EventId", "TargetUserName", "IpAddress", "EventType"],
+        allow_empty_rows=True,
+    )
+    validation = validate_windows_events(rows)
+
+    assert rows == []
+    assert validation.valid is True
+
+
+def test_header_only_windows_events_csv_still_requires_headers(tmp_path) -> None:
+    """Header-only event files are valid only when the schema is complete."""
+    path = tmp_path / "windows_events.csv"
+    path.write_text("ComputerName,TimeCreated,EventId\n", encoding="utf-8")
+
+    with pytest.raises(InvalidFormatError):
+        load_csv_file(
+            path,
+            ["ComputerName", "TimeCreated", "EventId", "TargetUserName", "IpAddress", "EventType"],
+            allow_empty_rows=True,
+        )
 
 
 def test_load_csv_file_missing(tmp_path) -> None:

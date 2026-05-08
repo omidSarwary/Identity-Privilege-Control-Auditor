@@ -132,7 +132,7 @@ def collect_windows_data(
     command_result = run_command(command, cwd=PROJECT_ROOT, timeout=timeout)
 
     missing_outputs = _verify_outputs(EXPECTED_OUTPUTS)
-    success = not command_result.timed_out and not missing_outputs
+    success = command_result.succeeded and not missing_outputs
     reason = _collector_reason(command_result.to_dict(), missing_outputs)
     output_statuses = _build_output_statuses(missing_outputs, reason)
     if success and command_result.succeeded:

@@ -55,6 +55,12 @@ def _build_identity_record(identity: str, platform: str) -> dict[str, Any]:
         "privileges": [],
         "status": "enabled",
         "baseline_match": False,
+        "linux_sudo_approved": False,
+        "windows_admin_approved": False,
+        "service_account_approved": False,
+        "is_inactive": False,
+        "last_login": "",
+        "last_logon": "",
         "events": [],
         "policy_findings": [],
         "risk_score": RISK_SCORE_BY_LEVEL[RiskLevel.LOW.value],
@@ -75,6 +81,13 @@ def _update_status(record: dict[str, Any], status: str) -> None:
     if current_status == "disabled":
         return
     record["status"] = status
+
+
+def _merge_privilege(record: dict[str, Any], privilege: str) -> None:
+    """Add one normalized privilege value without duplicating it."""
+    normalized_privilege = privilege.strip().lower()
+    if normalized_privilege and normalized_privilege not in record["privileges"]:
+        record["privileges"].append(normalized_privilege)
 
 
 def normalize_identities(
@@ -102,8 +115,16 @@ def normalize_identities(
         # Linux privilege state is derived from the sudo inventory and the user
         # record so later correlation can compare it to the approved baseline
         # instead of treating Linux and Windows as separate analysis worlds.
-        if _truthy(user.get("is_sudo")) and "sudo" not in record["privileges"]:
-            record["privileges"].append("sudo")
+        user_privileges = {str(item).strip().lower() for item in user.get("privileges", []) or []}
+        if _truthy(user.get("is_sudo")) or "sudo" in user_privileges:
+            _merge_privilege(record, "sudo")
+
+        # Inactivity must come from collected identity evidence. Later risk
+        # rules should not infer it from an empty authentication window.
+        if "is_inactive" in user:
+            record["is_inactive"] = _truthy(user.get("is_inactive"))
+        if user.get("last_login") is not None:
+            record["last_login"] = str(user.get("last_login") or "")
 
         if _truthy(user.get("enabled", True)):
             _update_status(record, "enabled")
@@ -113,8 +134,7 @@ def normalize_identities(
     for username in linux_payload.get("sudo_users", []) or []:
         record = records.setdefault(str(username), _build_identity_record(str(username), "linux"))
         _merge_platform(record, "linux")
-        if "sudo" not in record["privileges"]:
-            record["privileges"].append("sudo")
+        _merge_privilege(record, "sudo")
 
     for row in windows_identity_rows or []:
         username = str(row.get("Username") or row.get("username") or "unknown")
@@ -124,8 +144,11 @@ def normalize_identities(
         # Windows local admin membership is tracked separately from account
         # enablement so the later baseline comparison can distinguish standing
         # privilege from the basic enabled/disabled account state.
-        if _truthy(row.get("IsLocalAdmin") or row.get("is_local_admin")) and "local_admin" not in record["privileges"]:
-            record["privileges"].append("local_admin")
+        if _truthy(row.get("IsLocalAdmin") or row.get("is_local_admin")):
+            _merge_privilege(record, "local_admin")
+
+        if row.get("LastLogon") is not None or row.get("last_logon") is not None:
+            record["last_logon"] = str(row.get("LastLogon") or row.get("last_logon") or "")
 
         if _truthy(row.get("Enabled", True)):
             _update_status(record, "enabled")
@@ -168,19 +191,26 @@ def correlate_identity_privileges(
         # That keeps the report focused on accounts that can actually change the
         # security posture of the host.
         privileged = bool(privileges)
-        approved = (
-            username in approved_linux
-            or username in approved_windows
-            or username in approved_service
-        )
+        linux_sudo_approved = username in approved_linux
+        windows_admin_approved = username in approved_windows
+        service_account_approved = username in approved_service
 
         if privileged:
-            record["baseline_match"] = approved
-            if not approved:
-                record["reasons"] = list(record.get("reasons", [])) + [
-                    "Privileged account is not present in the approved baseline."
-                ]
+            record["linux_sudo_approved"] = linux_sudo_approved
+            record["windows_admin_approved"] = windows_admin_approved
+            record["service_account_approved"] = service_account_approved
+            record["baseline_match"] = (
+                ("sudo" not in privileges or linux_sudo_approved)
+                and ("local_admin" not in privileges or windows_admin_approved)
+            )
+            reasons = list(record.get("reasons", []))
+            if "sudo" in privileges and not linux_sudo_approved:
+                reasons.append("Linux sudo account is not present in the approved sudo baseline.")
+            if "local_admin" in privileges and not windows_admin_approved:
+                reasons.append("Windows administrator account is not present in the approved admin baseline.")
+            record["reasons"] = reasons
         else:
+            record["service_account_approved"] = service_account_approved
             record["baseline_match"] = True
 
         correlated.append(record)

@@ -50,6 +50,7 @@ KNOWN_SOURCE_SPECS: dict[str, dict[str, Any]] = {
         "kind": "csv",
         "validator": validate_windows_events,
         "required_columns": ["ComputerName", "TimeCreated", "EventId", "TargetUserName", "IpAddress", "EventType"],
+        "allow_empty_rows": True,
     },
     "windows_policy": {
         "filename": "windows_policy.csv",
@@ -142,7 +143,12 @@ def _attempt_source_load(
         if spec["kind"] == "json":
             payload, validation = _load_json_source(candidate, spec["validator"])
         elif spec["kind"] == "csv":
-            payload, validation = _load_csv_source(candidate, spec["required_columns"], spec["validator"])
+            payload = load_csv_file(
+                candidate,
+                list(spec["required_columns"]),
+                allow_empty_rows=bool(spec.get("allow_empty_rows", False)),
+            )
+            validation = spec["validator"](payload)
         else:
             payload = _load_log_source(candidate)
             validation = ValidationStatus(valid=True)

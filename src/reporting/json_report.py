@@ -27,6 +27,7 @@ def build_json_report_payload(analysis_result: Mapping[str, Any]) -> dict[str, A
     return {
         "run_id": analysis_result.get("run_id", "unknown"),
         "mode": analysis_result.get("mode", "test"),
+        "selected_platform": analysis_result.get("selected_platform"),
         "fallback_used": bool(fallback_used) if fallback_used is not None else None,
         "fallback_reason": analysis_result.get("fallback_reason"),
         "summary": analysis_result.get("summary", {}),
