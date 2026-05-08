@@ -133,27 +133,35 @@ def _resolve_source_path(
     falls back to the ordered base directories. This keeps test data, mock data,
     and later production paths interchangeable.
     """
+    excluded_paths = {
+        str((_as_path(path) or Path(str(path))).resolve())
+        for path in data_paths.get("excluded_paths", []) or []
+    }
     explicit_keys = (filename, Path(filename).stem)
     for key in explicit_keys:
         explicit = _as_path(data_paths.get(key))
         if explicit is None:
             continue
+        if str(explicit.resolve()) in excluded_paths:
+            continue
         if explicit.exists() and explicit.is_file():
             return explicit
         if explicit.exists() and explicit.is_dir():
             candidate = explicit / filename
-            if candidate.exists():
+            if candidate.exists() and str(candidate.resolve()) not in excluded_paths:
                 return candidate
 
     for base_dir in _base_directories(mode, data_paths):
         if base_dir.exists() and base_dir.is_file() and base_dir.name == filename:
-            return base_dir
+            if str(base_dir.resolve()) not in excluded_paths:
+                return base_dir
+            continue
         if not base_dir.exists() or not base_dir.is_dir():
             continue
 
         for relative_name in (filename, *extra_candidates):
             candidate = base_dir / relative_name
-            if candidate.exists():
+            if candidate.exists() and str(candidate.resolve()) not in excluded_paths:
                 return candidate
     return None
 

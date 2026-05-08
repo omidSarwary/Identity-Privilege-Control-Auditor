@@ -162,7 +162,11 @@ def _attempt_source_load(
     return payload, validation, validation.errors[-1] if validation.errors else "validation failed"
 
 
-def collect_fallback_data(mode: str = "production") -> dict[str, Any]:
+def collect_fallback_data(
+    mode: str = "production",
+    *,
+    ignored_collected_files: Sequence[str] | None = None,
+) -> dict[str, Any]:
     """Locate and validate fallback data for one run.
 
     Expects a mode string so test mode can include the mock data directory last
@@ -171,6 +175,7 @@ def collect_fallback_data(mode: str = "production") -> dict[str, Any]:
     downstream handling. The function never performs analysis or remediation.
     """
     search_directories = _search_directories(mode)
+    ignored_paths = {str(Path(path).resolve()) for path in ignored_collected_files or []}
     searched_directory_names = [str(directory) for directory in search_directories]
     LOGGER.warning(
         "Fallback collector activated because primary collector output was unavailable or incomplete."
@@ -181,6 +186,7 @@ def collect_fallback_data(mode: str = "production") -> dict[str, Any]:
     payloads: dict[str, Any] = {}
     used_files: dict[str, dict[str, Any]] = {}
     missing_files: list[str] = []
+    warnings: list[str] = []
 
     for source_name, spec in KNOWN_SOURCE_SPECS.items():
         attempts: list[dict[str, Any]] = []
@@ -192,6 +198,7 @@ def collect_fallback_data(mode: str = "production") -> dict[str, Any]:
 
         for directory in search_directories:
             candidate = directory / spec["filename"]
+            candidate_resolved = str(candidate.resolve())
             if not candidate.exists() or not candidate.is_file():
                 attempts.append(
                     {
@@ -201,6 +208,25 @@ def collect_fallback_data(mode: str = "production") -> dict[str, Any]:
                         "valid": False,
                         "selected": False,
                         "errors": [f"{spec['filename']}: file not found"],
+                    }
+                )
+                continue
+            if candidate_resolved in ignored_paths:
+                warning = (
+                    "Fallback ignored an existing collected file that was not "
+                    f"produced by the current run: {candidate}"
+                )
+                LOGGER.warning(warning)
+                warnings.append(warning)
+                attempts.append(
+                    {
+                        "path": str(candidate),
+                        "source_directory": str(directory),
+                        "loaded": False,
+                        "valid": False,
+                        "selected": False,
+                        "warnings": [warning],
+                        "errors": ["stale collected file ignored"],
                     }
                 )
                 continue
@@ -312,6 +338,7 @@ def collect_fallback_data(mode: str = "production") -> dict[str, Any]:
         "used_files": used_files,
         "missing_files": missing_files,
         "no_data_found": no_data_found,
+        "warnings": warnings,
         "sources": sources,
         "payloads": payloads,
     }

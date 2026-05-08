@@ -135,3 +135,45 @@ def test_production_mode_honors_search_order(monkeypatch, tmp_path) -> None:
     ]
     assert result["used_files"]["linux_identity"]["source_directory"].endswith("incoming")
     assert result["used_files"]["linux_policy"]["source_directory"].endswith("linux")
+
+
+def test_production_fallback_ignores_stale_selected_collected_files(monkeypatch, tmp_path) -> None:
+    """Fallback should not silently reuse stale collector outputs after failure.
+
+    The ignored file list represents outputs that existed before the failed
+    collector run. Fallback must record a warning, skip those files in
+    ``data/collected``, and continue to safer manual fallback locations.
+    """
+    _configure_search_roots(monkeypatch, tmp_path, test_mockdata_dir=MOCKDATA_DIR)
+
+    collected_dir = tmp_path / "data" / "collected"
+    incoming_dir = tmp_path / "data" / "incoming"
+
+    _copy_mock_file("windows_identity.csv", collected_dir)
+    _copy_mock_file("windows_identity.csv", incoming_dir)
+
+    stale_path = collected_dir / "windows_identity.csv"
+    result = collect_fallback_data(mode="production", ignored_collected_files=[str(stale_path)])
+
+    assert result["used_files"]["windows_identity"]["source_directory"].endswith("incoming")
+    assert result["used_files"]["windows_identity"]["path"] == str(incoming_dir / "windows_identity.csv")
+    assert result["warnings"]
+    assert "not produced by the current run" in result["warnings"][0]
+    attempts = result["sources"]["windows_identity"]["attempts"]
+    assert attempts[0]["selected"] is False
+    assert attempts[0]["errors"] == ["stale collected file ignored"]
+
+
+def test_production_fallback_returns_no_data_when_only_stale_collected_files_exist(monkeypatch, tmp_path) -> None:
+    """Ignored stale collected files should not make production fallback look valid."""
+    _configure_search_roots(monkeypatch, tmp_path)
+
+    collected_dir = tmp_path / "data" / "collected"
+    _copy_mock_file("windows_identity.csv", collected_dir)
+
+    stale_path = collected_dir / "windows_identity.csv"
+    result = collect_fallback_data(mode="production", ignored_collected_files=[str(stale_path)])
+
+    assert result["no_data_found"] is True
+    assert result["used_files"] == {}
+    assert result["warnings"]

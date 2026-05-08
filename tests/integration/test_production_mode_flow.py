@@ -229,3 +229,93 @@ def test_windows_production_mode_prefers_collector_outputs_over_incoming(monkeyp
     assert any("Fallback used: No." in message for message in captured_messages)
     assert captured_data_paths["windows_identity"] == str(collected_identity)
     assert _report_paths(tmp_path)["json_report"].exists()
+
+
+def test_windows_failed_collector_excludes_stale_collected_outputs(monkeypatch, tmp_path) -> None:
+    """Analysis should not re-resolve stale collected files after fallback skips them."""
+    fixed_run_id = "20260507-130002"
+    captured_data_paths: dict[str, object] = {}
+    incoming_dir = tmp_path / "data" / "incoming"
+    collected_dir = tmp_path / "data" / "collected"
+    incoming_dir.mkdir(parents=True)
+    collected_dir.mkdir(parents=True)
+    stale_events = collected_dir / "windows_events.csv"
+    fresh_identity = incoming_dir / "windows_identity.csv"
+    stale_events.write_text("ComputerName,TimeCreated,EventId,TargetUserName,IpAddress,EventType\n", encoding="utf-8")
+    fresh_identity.write_text(
+        "ComputerName,CollectionTime,Username,Enabled,IsLocalAdmin,LastLogon,Source\n",
+        encoding="utf-8",
+    )
+
+    monkeypatch.setattr(app, "create_run_id", lambda: fixed_run_id)
+    monkeypatch.setattr(
+        app,
+        "load_app_config",
+        lambda: {
+            "project_name": "NordSec Identity & Privilege Control Auditor",
+            "version": "0.2.0",
+            "paths": {"incoming": str(incoming_dir), "collected": str(collected_dir)},
+        },
+    )
+    monkeypatch.setattr(app, "bootstrap_project", lambda perform_full_checks=True: _bootstrap_status())
+    monkeypatch.setattr(
+        app,
+        "load_json_file",
+        lambda path: {"paths": {"incoming": str(incoming_dir), "collected": str(collected_dir)}},
+    )
+    monkeypatch.setattr(app, "collect_linux_data", lambda mode, **kwargs: (_ for _ in ()).throw(AssertionError("linux collector should not run for windows production mode")))
+    monkeypatch.setattr(
+        app,
+        "collect_windows_data",
+        lambda mode, **kwargs: {
+            "platform": "windows",
+            "mode": mode,
+            "success": False,
+            "missing_outputs": [],
+            "stale_outputs": [str(stale_events)],
+            "current_outputs": [],
+            "expected_outputs": {"windows_events": str(stale_events)},
+            "command": {"returncode": 1},
+            "reason": "collector exited with code 1",
+            "output_statuses": {
+                "windows_events": {
+                    "status": "not collected in this run",
+                    "reason": "stale existing file ignored",
+                    "path": str(stale_events),
+                }
+            },
+        },
+    )
+
+    def _fallback(mode, **kwargs):
+        assert str(stale_events) in kwargs["ignored_collected_files"]
+        return {
+            "mode": mode,
+            "fallback_activated": True,
+            "fallback_reason": "Primary collector output was incomplete.",
+            "used_files": {"windows_identity": {"path": str(fresh_identity)}},
+            "missing_files": [],
+            "no_data_found": False,
+            "searched_directories": [str(collected_dir), str(incoming_dir)],
+            "warnings": [
+                f"Fallback ignored an existing collected file that was not produced by the current run: {stale_events}"
+            ],
+            "sources": {},
+            "payloads": {},
+        }
+
+    monkeypatch.setattr(app, "collect_fallback_data", _fallback)
+
+    def _run_identity_risk_engine(mode, data_paths, run_id):
+        captured_data_paths.update(data_paths)
+        return _analysis_result(run_id, mode)
+
+    monkeypatch.setattr(app, "run_identity_risk_engine", _run_identity_risk_engine)
+    monkeypatch.setattr(app, "write_reports", lambda analysis_result: write_reports(analysis_result, output_root=tmp_path))
+    monkeypatch.setattr(app, "print_message", lambda message: None)
+
+    exit_code = app.main(["--mode", "windows", "--no-bootstrap"], input_func=lambda _: "windows")
+
+    assert exit_code == 0
+    assert captured_data_paths["windows_identity"] == str(fresh_identity)
+    assert str(stale_events) in captured_data_paths["excluded_paths"]

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import os
 from pathlib import Path
 
 from src.collectors import linux_collector
@@ -161,10 +162,14 @@ def test_collect_linux_data_keeps_outputs_for_controlled_warning_code(monkeypatc
 
 def test_collect_linux_data_rejects_stale_outputs_when_command_is_missing(monkeypatch, tmp_path) -> None:
     """A fatal command failure must not be masked by old output files."""
+    old_timestamp = 1000.0
+    collector_started_at = 2000.0
     identity_path = tmp_path / "linux_identity.json"
     policy_path = tmp_path / "linux_policy.json"
     identity_path.write_text("{}", encoding="utf-8")
     policy_path.write_text("{}", encoding="utf-8")
+    for path in [identity_path, policy_path]:
+        os.utime(path, (old_timestamp, old_timestamp))
 
     monkeypatch.setattr(
         linux_collector,
@@ -184,12 +189,15 @@ def test_collect_linux_data_rejects_stale_outputs_when_command_is_missing(monkey
             stdout="",
             stderr="command not found",
             timed_out=False,
-            started_at=0.0,
-            finished_at=1.0,
+            started_at=collector_started_at,
+            finished_at=collector_started_at + 1,
         ),
     )
 
     result = linux_collector.collect_linux_data(mode="production")
 
     assert result["success"] is False
+    assert result["missing_outputs"] == []
+    assert sorted(result["stale_outputs"]) == sorted([str(identity_path), str(policy_path)])
+    assert result["current_outputs"] == []
     assert result["reason"] == "command unavailable"

@@ -93,7 +93,7 @@ def test_main_skips_platform_collectors_in_test_mode(monkeypatch) -> None:
     monkeypatch.setattr(
         app,
         "collect_fallback_data",
-        lambda mode: {
+        lambda mode, **kwargs: {
             "fallback_activated": True,
             "fallback_reason": "mockdata used",
             "no_data_found": False,
@@ -126,7 +126,7 @@ def test_main_skips_platform_collectors_in_mode_test(monkeypatch) -> None:
     monkeypatch.setattr(
         app,
         "collect_fallback_data",
-        lambda mode: {
+        lambda mode, **kwargs: {
             "fallback_activated": True,
             "fallback_reason": "mockdata used",
             "no_data_found": False,
@@ -164,7 +164,7 @@ def test_main_runs_linux_collector_for_linux_selection(monkeypatch) -> None:
         "collect_windows_data",
         lambda mode, **kwargs: (_ for _ in ()).throw(AssertionError("windows collector should not run for linux selection")),
     )
-    monkeypatch.setattr(app, "collect_fallback_data", lambda mode: (_ for _ in ()).throw(AssertionError("fallback should not run when linux collector succeeds")))
+    monkeypatch.setattr(app, "collect_fallback_data", lambda mode, **kwargs: (_ for _ in ()).throw(AssertionError("fallback should not run when linux collector succeeds")))
     monkeypatch.setattr(app, "run_identity_risk_engine", lambda mode, data_paths, run_id: _mock_analysis_result(run_id, mode))
     monkeypatch.setattr(app, "write_reports", lambda analysis_result: _mock_report_paths())
     monkeypatch.setattr(app, "print_message", lambda message: None)
@@ -199,7 +199,7 @@ def test_main_passes_linux_collection_window_arguments(monkeypatch) -> None:
         "collect_windows_data",
         lambda mode, **kwargs: (_ for _ in ()).throw(AssertionError("windows collector should not run for linux selection")),
     )
-    monkeypatch.setattr(app, "collect_fallback_data", lambda mode: (_ for _ in ()).throw(AssertionError("fallback should not run when linux collector succeeds")))
+    monkeypatch.setattr(app, "collect_fallback_data", lambda mode, **kwargs: (_ for _ in ()).throw(AssertionError("fallback should not run when linux collector succeeds")))
     monkeypatch.setattr(app, "run_identity_risk_engine", lambda mode, data_paths, run_id: _mock_analysis_result(run_id, mode))
     monkeypatch.setattr(app, "write_reports", lambda analysis_result: _mock_report_paths())
     monkeypatch.setattr(app, "print_message", lambda message: None)
@@ -241,7 +241,7 @@ def test_main_routes_windows_selection_to_windows_collector(monkeypatch) -> None
             "command": {"returncode": 0},
         },
     )
-    monkeypatch.setattr(app, "collect_fallback_data", lambda mode: (_ for _ in ()).throw(AssertionError("fallback should not run when windows collector succeeds")))
+    monkeypatch.setattr(app, "collect_fallback_data", lambda mode, **kwargs: (_ for _ in ()).throw(AssertionError("fallback should not run when windows collector succeeds")))
     monkeypatch.setattr(app, "run_identity_risk_engine", lambda mode, data_paths, run_id: _mock_analysis_result(run_id, mode))
     monkeypatch.setattr(app, "write_reports", lambda analysis_result: _mock_report_paths())
     monkeypatch.setattr(app, "print_message", lambda message: None)
@@ -276,7 +276,7 @@ def test_main_passes_windows_collection_window_arguments(monkeypatch) -> None:
             "command": {"returncode": 0},
         },
     )
-    monkeypatch.setattr(app, "collect_fallback_data", lambda mode: (_ for _ in ()).throw(AssertionError("fallback should not run when windows collector succeeds")))
+    monkeypatch.setattr(app, "collect_fallback_data", lambda mode, **kwargs: (_ for _ in ()).throw(AssertionError("fallback should not run when windows collector succeeds")))
     monkeypatch.setattr(app, "run_identity_risk_engine", lambda mode, data_paths, run_id: _mock_analysis_result(run_id, mode))
     monkeypatch.setattr(app, "write_reports", lambda analysis_result: _mock_report_paths())
     monkeypatch.setattr(app, "print_message", lambda message: None)
@@ -313,7 +313,7 @@ def test_main_safe_exits_when_no_data_exists(monkeypatch) -> None:
     monkeypatch.setattr(
         app,
         "collect_fallback_data",
-        lambda mode: {
+        lambda mode, **kwargs: {
             "fallback_activated": True,
             "fallback_reason": "no data",
             "no_data_found": True,
@@ -339,7 +339,7 @@ def test_main_passes_fallback_metadata_to_report_writer(monkeypatch) -> None:
     monkeypatch.setattr(
         app,
         "collect_fallback_data",
-        lambda mode: {
+        lambda mode, **kwargs: {
             "fallback_activated": True,
             "fallback_reason": "mockdata used",
             "no_data_found": False,
@@ -391,7 +391,7 @@ def test_main_reports_fallback_reason_for_incomplete_collection(monkeypatch) -> 
     monkeypatch.setattr(
         app,
         "collect_fallback_data",
-        lambda mode: {
+        lambda mode, **kwargs: {
             "mode": mode,
             "fallback_activated": True,
             "fallback_reason": "Primary collector output was incomplete.",
@@ -411,3 +411,149 @@ def test_main_reports_fallback_reason_for_incomplete_collection(monkeypatch) -> 
 
     assert exit_code == 0
     assert any("Fallback used: Yes." in message and "Primary collector output was incomplete." in message for message in captured_messages)
+
+
+def test_main_does_not_report_stale_windows_outputs_as_collected(monkeypatch) -> None:
+    """The terminal summary should distinguish fresh outputs from stale files."""
+    captured_messages: list[str] = []
+    captured_ignored_files: list[str] = []
+    stale_events = "data/collected/windows_events.csv"
+    stale_policy = "data/collected/windows_policy.csv"
+
+    monkeypatch.setattr(app, "load_app_config", lambda: {"project_name": "NordSec", "version": "0.2.0", "default_mode": "windows"})
+    monkeypatch.setattr(app, "bootstrap_project", lambda perform_full_checks=True: _bootstrap_status())
+    monkeypatch.setattr(
+        app,
+        "collect_windows_data",
+        lambda mode, **kwargs: {
+            "platform": "windows",
+            "mode": mode,
+            "success": False,
+            "missing_outputs": [],
+            "stale_outputs": [stale_events, stale_policy],
+            "current_outputs": ["data/collected/windows_identity.csv"],
+            "expected_outputs": {
+                "windows_identity": "data/collected/windows_identity.csv",
+                "windows_events": stale_events,
+                "windows_policy": stale_policy,
+            },
+            "command": {"returncode": 1, "stderr_summary": "Access is denied."},
+            "reason": "access denied; run PowerShell as Administrator",
+            "output_statuses": {
+                "windows_identity": {
+                    "status": "collected",
+                    "reason": "output file created",
+                    "path": "data/collected/windows_identity.csv",
+                },
+                "windows_events": {
+                    "status": "not collected in this run",
+                    "reason": "stale existing file ignored",
+                    "path": stale_events,
+                },
+                "windows_policy": {
+                    "status": "not collected in this run",
+                    "reason": "stale existing file ignored",
+                    "path": stale_policy,
+                },
+            },
+        },
+    )
+    monkeypatch.setattr(app, "collect_linux_data", lambda mode, **kwargs: (_ for _ in ()).throw(AssertionError("linux collector should not run for windows selection")))
+
+    def _collect_fallback_data(mode, **kwargs):
+        captured_ignored_files.extend(kwargs.get("ignored_collected_files", []))
+        return {
+            "mode": mode,
+            "fallback_activated": True,
+            "fallback_reason": "Primary collector output was incomplete.",
+            "used_files": {"windows_identity": {"path": "data/incoming/windows_identity.csv"}},
+            "missing_files": [],
+            "no_data_found": False,
+            "searched_directories": ["data/collected", "data/incoming"],
+            "warnings": [
+                f"Fallback ignored an existing collected file that was not produced by the current run: {stale_events}"
+            ],
+            "sources": {},
+            "payloads": {},
+        }
+
+    monkeypatch.setattr(app, "collect_fallback_data", _collect_fallback_data)
+    monkeypatch.setattr(app, "run_identity_risk_engine", lambda mode, data_paths, run_id: _mock_analysis_result(run_id, mode))
+    monkeypatch.setattr(app, "write_reports", lambda analysis_result: _mock_report_paths())
+    monkeypatch.setattr(app, "print_message", lambda message: captured_messages.append(message))
+    monkeypatch.setattr(app, "print_lines", lambda lines: captured_messages.extend(lines))
+
+    exit_code = app.main(["--mode", "windows", "--no-bootstrap"], input_func=lambda _: "windows")
+
+    terminal_output = "\n".join(captured_messages)
+    assert exit_code == 0
+    assert stale_events in captured_ignored_files
+    assert stale_policy in captured_ignored_files
+    assert "Security events: not collected in this run" in terminal_output
+    assert "Policy data: not collected in this run" in terminal_output
+    assert "Security events: collected" not in terminal_output
+    assert "Warning: Fallback ignored an existing collected file" in terminal_output
+
+
+def test_main_adds_stale_fallback_warning_to_report_metadata(monkeypatch) -> None:
+    """Stale fallback warnings should reach report data quality."""
+    captured: dict[str, object] = {}
+    warning = (
+        "Fallback ignored an existing collected file that was not produced by the current run: "
+        "data/collected/windows_events.csv"
+    )
+
+    monkeypatch.setattr(app, "load_app_config", lambda: {"project_name": "NordSec", "version": "0.2.0", "default_mode": "windows"})
+    monkeypatch.setattr(app, "bootstrap_project", lambda perform_full_checks=True: _bootstrap_status())
+    monkeypatch.setattr(
+        app,
+        "collect_windows_data",
+        lambda mode, **kwargs: {
+            "platform": "windows",
+            "mode": mode,
+            "success": False,
+            "missing_outputs": [],
+            "stale_outputs": ["data/collected/windows_events.csv"],
+            "expected_outputs": {"windows_events": "data/collected/windows_events.csv"},
+            "command": {"returncode": 1},
+            "reason": "collector exited with code 1",
+            "output_statuses": {
+                "windows_events": {
+                    "status": "not collected in this run",
+                    "reason": "stale existing file ignored",
+                    "path": "data/collected/windows_events.csv",
+                }
+            },
+        },
+    )
+    monkeypatch.setattr(app, "collect_linux_data", lambda mode, **kwargs: (_ for _ in ()).throw(AssertionError("linux collector should not run for windows selection")))
+    monkeypatch.setattr(
+        app,
+        "collect_fallback_data",
+        lambda mode, **kwargs: {
+            "mode": mode,
+            "fallback_activated": True,
+            "fallback_reason": "Primary collector output was incomplete.",
+            "used_files": {"windows_identity": {"path": "data/incoming/windows_identity.csv"}},
+            "missing_files": [],
+            "no_data_found": False,
+            "searched_directories": ["data/collected", "data/incoming"],
+            "warnings": [warning],
+            "sources": {},
+            "payloads": {},
+        },
+    )
+    monkeypatch.setattr(app, "run_identity_risk_engine", lambda mode, data_paths, run_id: _mock_analysis_result(run_id, mode))
+
+    def _write_reports(analysis_result):
+        captured["analysis_result"] = analysis_result
+        return _mock_report_paths()
+
+    monkeypatch.setattr(app, "write_reports", _write_reports)
+    monkeypatch.setattr(app, "print_message", lambda message: None)
+
+    exit_code = app.main(["--mode", "windows", "--no-bootstrap"], input_func=lambda _: "windows")
+
+    assert exit_code == 0
+    data_quality = captured["analysis_result"]["data_quality"]
+    assert warning in data_quality["warnings"]

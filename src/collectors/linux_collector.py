@@ -24,16 +24,28 @@ def _normalized_mode(mode: str) -> str:
     return "test" if str(mode).strip().lower() == "test" else "production"
 
 
-def _verify_outputs(expected_outputs: dict[str, Path]) -> list[str]:
-    """Return a list of expected files that were not created."""
-    missing_outputs = []
+def _inspect_outputs(expected_outputs: dict[str, Path], started_at: float) -> dict[str, list[str]]:
+    """Classify expected output files by current-run freshness."""
+    missing_outputs: list[str] = []
+    stale_outputs: list[str] = []
+    current_outputs: list[str] = []
     for _, path in expected_outputs.items():
+        path_str = str(path)
         if not path.exists():
-            missing_outputs.append(str(path))
-    return missing_outputs
+            missing_outputs.append(path_str)
+            continue
+        if path.stat().st_mtime + 0.001 < started_at:
+            stale_outputs.append(path_str)
+            continue
+        current_outputs.append(path_str)
+    return {
+        "missing_outputs": missing_outputs,
+        "stale_outputs": stale_outputs,
+        "current_outputs": current_outputs,
+    }
 
 
-def _collector_reason(command_result: dict[str, Any], missing_outputs: list[str]) -> str:
+def _collector_reason(command_result: dict[str, Any], missing_outputs: list[str], stale_outputs: list[str]) -> str:
     """Translate a raw collector result into a short human-readable reason."""
     if command_result.get("timed_out"):
         return "collector timed out"
@@ -47,16 +59,23 @@ def _collector_reason(command_result: dict[str, Any], missing_outputs: list[str]
         return "permission denied; run with sudo/root if protected files must be inspected"
     if "no such file" in stderr or "file not found" in stderr:
         return "file not found"
-    if returncode in CONTROLLED_WARNING_RETURN_CODES:
-        return "collector completed with warnings"
     if missing_outputs:
         return "output file missing"
+    if stale_outputs:
+        return "output file not updated in this run"
+    if returncode in CONTROLLED_WARNING_RETURN_CODES:
+        return "collector completed with warnings"
     if returncode not in (0, None):
         return f"collector exited with code {returncode}"
     return "completed successfully"
 
 
-def _build_output_statuses(missing_outputs: list[str], reason: str) -> dict[str, dict[str, str]]:
+def _build_output_statuses(
+    *,
+    missing_outputs: list[str],
+    stale_outputs: list[str],
+    reason: str,
+) -> dict[str, dict[str, str]]:
     """Build per-file status records for the user-facing summary."""
     statuses: dict[str, dict[str, str]] = {}
     for name, path in EXPECTED_OUTPUTS.items():
@@ -65,6 +84,12 @@ def _build_output_statuses(missing_outputs: list[str], reason: str) -> dict[str,
             statuses[name] = {
                 "status": "failed",
                 "reason": reason,
+                "path": path_str,
+            }
+        elif path_str in stale_outputs:
+            statuses[name] = {
+                "status": "not collected in this run",
+                "reason": "stale existing file ignored",
                 "path": path_str,
             }
         else:
@@ -109,15 +134,24 @@ def collect_linux_data(
         max_events,
     )
     command_result = run_command(command, cwd=PROJECT_ROOT, timeout=timeout)
+    collector_started_at = command_result.started_at
 
-    missing_outputs = _verify_outputs(EXPECTED_OUTPUTS)
+    output_state = _inspect_outputs(EXPECTED_OUTPUTS, collector_started_at)
+    missing_outputs = output_state["missing_outputs"]
+    stale_outputs = output_state["stale_outputs"]
+    current_outputs = output_state["current_outputs"]
     success = (
         not command_result.timed_out
         and not missing_outputs
+        and not stale_outputs
         and (command_result.returncode == 0 or command_result.returncode in CONTROLLED_WARNING_RETURN_CODES)
     )
-    reason = _collector_reason(command_result.to_dict(), missing_outputs)
-    output_statuses = _build_output_statuses(missing_outputs, reason)
+    reason = _collector_reason(command_result.to_dict(), missing_outputs, stale_outputs)
+    output_statuses = _build_output_statuses(
+        missing_outputs=missing_outputs,
+        stale_outputs=stale_outputs,
+        reason=reason,
+    )
     if success and command_result.succeeded:
         LOGGER.info("Linux collector completed successfully")
     elif success:
@@ -131,6 +165,9 @@ def collect_linux_data(
         "command": command_result.to_dict(),
         "expected_outputs": {name: str(path) for name, path in EXPECTED_OUTPUTS.items()},
         "missing_outputs": missing_outputs,
+        "stale_outputs": stale_outputs,
+        "current_outputs": current_outputs,
+        "collector_started_at": collector_started_at,
         "success": success,
         "reason": reason,
         "output_statuses": output_statuses,

@@ -183,6 +183,49 @@ def _apply_collector_output_paths(
     return updated_paths
 
 
+def _stale_collector_outputs(collector_results: list[dict[str, object]]) -> list[str]:
+    """Return collector outputs that existed but were not written by this run.
+
+    These paths must be treated carefully because they may contain evidence
+    from a previous execution. Keeping the list explicit lets fallback and
+    analysis avoid silently using stale files after a failed collector run.
+    """
+    stale_outputs: list[str] = []
+    for result in collector_results:
+        for path in result.get("stale_outputs", []) or []:
+            stale_outputs.append(str(path))
+    return stale_outputs
+
+
+def _apply_fallback_output_paths(
+    data_paths: dict[str, object],
+    fallback_result: dict[str, object],
+    *,
+    excluded_paths: Sequence[str] = (),
+) -> dict[str, object]:
+    """Pin analysis to the exact fallback files selected for this run.
+
+    The risk engine normally resolves files from configured directories. When
+    fallback has already chosen validated files, explicit paths prevent the
+    engine from accidentally re-selecting an older file from ``data/collected``.
+    """
+    updated_paths = dict(data_paths)
+    used_files = fallback_result.get("used_files", {})
+    if isinstance(used_files, dict):
+        for source_name, info in used_files.items():
+            if isinstance(info, dict) and info.get("path"):
+                updated_paths[str(source_name)] = str(info["path"])
+
+    if excluded_paths:
+        existing = updated_paths.get("excluded_paths", [])
+        if isinstance(existing, (str, bytes)):
+            normalized_existing = [str(existing)]
+        else:
+            normalized_existing = [str(path) for path in (existing or [])]
+        updated_paths["excluded_paths"] = [*normalized_existing, *[str(path) for path in excluded_paths]]
+    return updated_paths
+
+
 def _build_collector_fallback_result(
     *,
     collector_results: list[dict[str, object]],
@@ -223,9 +266,11 @@ def _collector_status_text(collector_result: dict[str, object]) -> str:
 
     missing_outputs = collector_result.get("missing_outputs", [])
     missing_text = ", ".join(str(item) for item in missing_outputs) if missing_outputs else "none"
+    stale_outputs = collector_result.get("stale_outputs", [])
+    stale_text = ", ".join(str(item) for item in stale_outputs) if stale_outputs else "none"
     if success:
-        return f"success=True returncode={returncode} missing_outputs={missing_text}"
-    return f"success=False returncode={returncode} missing_outputs={missing_text}"
+        return f"success=True returncode={returncode} missing_outputs={missing_text} stale_outputs={stale_text}"
+    return f"success=False returncode={returncode} missing_outputs={missing_text} stale_outputs={stale_text}"
 
 
 def _collector_name(platform: str) -> str:
@@ -311,12 +356,13 @@ def _fallback_console_reason(
 
 def _fallback_file_lines(fallback_result: dict[str, object]) -> list[str]:
     """Build readable lines about fallback file selection."""
+    warning_lines = [f"Warning: {warning}" for warning in fallback_result.get("warnings", []) or []]
     if fallback_result.get("no_data_found"):
         missing_files = fallback_result.get("missing_files", [])
         missing_text = ", ".join(str(item) for item in missing_files) if missing_files else "none"
         searched = fallback_result.get("searched_directories", [])
         searched_text = ", ".join(str(item) for item in searched) if searched else "none"
-        return [
+        return warning_lines + [
             "Fallback found no usable evidence files.",
             f"Search order: {searched_text}",
             f"Missing files: {missing_text}",
@@ -327,9 +373,9 @@ def _fallback_file_lines(fallback_result: dict[str, object]) -> list[str]:
     if isinstance(used_files, dict) and used_files:
         files = ", ".join(f"{name}={info.get('path')}" for name, info in used_files.items() if isinstance(info, dict))
         if fallback_result.get("fallback_activated"):
-            return [f"Fallback found usable files: {files}"]
-        return [f"Collected files in use: {files}"]
-    return ["Fallback found partial files only."]
+            return warning_lines + [f"Fallback found usable files: {files}"]
+        return warning_lines + [f"Collected files in use: {files}"]
+    return warning_lines + ["Fallback found partial files only."]
 
 
 def _analysis_source_label(fallback_result: dict[str, object]) -> str:
@@ -416,6 +462,12 @@ def _attach_report_metadata(
     report_result["fallback_used"] = bool(fallback_result.get("fallback_activated"))
     report_result["fallback_reason"] = fallback_result.get("fallback_reason")
     report_result["selected_platform"] = selected_platform
+    fallback_warnings = [str(warning) for warning in fallback_result.get("warnings", []) or []]
+    if fallback_warnings:
+        data_quality = dict(report_result.get("data_quality", {}) or {})
+        existing_warnings = list(data_quality.get("warnings", []) or [])
+        data_quality["warnings"] = [*existing_warnings, *fallback_warnings]
+        report_result["data_quality"] = data_quality
     return report_result
 
 
@@ -515,6 +567,7 @@ def main(argv: Sequence[str] | None = None, input_func: Callable[[str], str] = i
 
         if not collector_results:
             fallback_result = collect_fallback_data(mode=platform_selection.analysis_mode)
+            data_paths = _apply_fallback_output_paths(data_paths, fallback_result)
         elif _collectors_succeeded(collector_results):
             fallback_result = _build_collector_fallback_result(
                 collector_results=collector_results,
@@ -522,7 +575,16 @@ def main(argv: Sequence[str] | None = None, input_func: Callable[[str], str] = i
             )
             data_paths = _apply_collector_output_paths(data_paths, collector_results)
         else:
-            fallback_result = collect_fallback_data(mode=platform_selection.analysis_mode)
+            stale_outputs = _stale_collector_outputs(collector_results)
+            fallback_result = collect_fallback_data(
+                mode=platform_selection.analysis_mode,
+                ignored_collected_files=stale_outputs,
+            )
+            data_paths = _apply_fallback_output_paths(
+                data_paths,
+                fallback_result,
+                excluded_paths=stale_outputs,
+            )
 
         print_message(format_section_title(3, 6, "Fallback check."))
         print_message(
