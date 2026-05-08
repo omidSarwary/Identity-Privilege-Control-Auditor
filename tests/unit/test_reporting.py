@@ -137,6 +137,31 @@ def test_text_and_json_reports_include_windows_selected_platform(tmp_path) -> No
     assert payload["manual_cross_evidence_platform"] == "none"
 
 
+def test_reports_include_manual_evidence_file_inventory(tmp_path) -> None:
+    """Manual evidence metadata should be visible in text and JSON reports."""
+    analysis_result = _platform_report_result("windows")
+    analysis_result["analysis_scope"] = "Windows collector data + manual Linux evidence"
+    analysis_result["manual_cross_evidence_included"] = True
+    analysis_result["manual_cross_evidence_platform"] = "linux"
+    analysis_result["manual_cross_evidence_files"] = [
+        {"path": "logdata/linux/auth.log", "existed_before_prompt": True}
+    ]
+    analysis_result["manual_cross_evidence_warnings"] = [
+        "Manual Linux evidence file existed before this run and may be stale: logdata/linux/auth.log"
+    ]
+    analysis_result["data_quality"]["warnings"] = list(analysis_result["manual_cross_evidence_warnings"])
+
+    artifacts = write_reports(analysis_result, output_root=tmp_path)
+    text_report = artifacts["text_report"].read_text(encoding="utf-8")
+    payload = json.loads(artifacts["json_report"].read_text(encoding="utf-8"))
+
+    assert "Manual evidence files found:" in text_report
+    assert "- logdata/linux/auth.log" in text_report
+    assert "may be stale" in text_report
+    assert payload["manual_cross_evidence_files"][0]["path"] == "logdata/linux/auth.log"
+    assert payload["manual_cross_evidence_warnings"]
+
+
 def test_text_and_json_reports_include_linux_selected_platform(tmp_path) -> None:
     """Linux production reports should show the selected Linux platform."""
     analysis_result = _platform_report_result("linux")

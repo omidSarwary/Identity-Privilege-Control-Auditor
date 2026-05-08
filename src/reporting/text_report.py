@@ -170,6 +170,7 @@ def build_text_report(analysis_result: Mapping[str, Any]) -> str:
     analysis_scope = str(analysis_result.get("analysis_scope") or f"{selected_platform} evidence")
     manual_included = bool(analysis_result.get("manual_cross_evidence_included", False))
     manual_platform = str(analysis_result.get("manual_cross_evidence_platform") or "none")
+    manual_files = list(analysis_result.get("manual_cross_evidence_files", []) or [])
     data_sources = analysis_result.get("data_sources", {})
     data_quality = analysis_result.get("data_quality", {})
     findings = list(analysis_result.get("findings", []))
@@ -186,6 +187,11 @@ def build_text_report(analysis_result: Mapping[str, Any]) -> str:
         f"Analysis scope: {analysis_scope}",
         f"Manual cross-platform evidence included: {'Yes' if manual_included else 'No'}",
         f"Manual cross-platform evidence platform: {manual_platform}",
+        "Manual evidence files found:",
+        *(
+            [f"- {item.get('path')}" for item in manual_files if isinstance(item, Mapping)]
+            or ["- None"]
+        ),
         "Data sources used:",
         *(_source_lines(data_sources) or ["- None"]),
         f"Fallback used: {'Yes' if _report_fallback_used(analysis_result) else 'No'}",

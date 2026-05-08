@@ -45,6 +45,16 @@ from src.parsers.validators import (
 
 
 LOGGER = logging.getLogger("nordsec.ipca.analysis.identity_risk_engine")
+NON_PATH_DATA_KEYS = {
+    "selected_platform",
+    "manual_cross_evidence_included",
+    "manual_cross_evidence_requested",
+    "manual_cross_evidence_platform",
+    "manual_cross_evidence_files",
+    "manual_cross_evidence_warnings",
+    "analysis_scope",
+    "excluded_paths",
+}
 
 WINDOWS_IDENTITY_COLUMNS = [
     "ComputerName",
@@ -183,6 +193,17 @@ def _record_count(data: Any) -> int:
     if data:
         return 1
     return 0
+
+
+def _serialize_data_paths(data_paths: Mapping[str, Any]) -> dict[str, Any]:
+    """Serialize configured paths while preserving non-path metadata values."""
+    serialized: dict[str, Any] = {}
+    for key, value in data_paths.items():
+        if key in NON_PATH_DATA_KEYS:
+            serialized[key] = value
+        else:
+            serialized[key] = str(_as_path(value) or value)
+    return serialized
 
 
 def _quality_entry(
@@ -662,11 +683,16 @@ def load_analysis_inputs(mode: str, data_paths: dict) -> dict:
         "linux_auth_log": linux_auth_log_quality,
     }
 
+    data_quality = _aggregate_data_quality(data_sources)
+    manual_warnings = [str(warning) for warning in normalized_paths.get("manual_cross_evidence_warnings", []) or []]
+    if manual_warnings:
+        data_quality["warnings"] = [*list(data_quality.get("warnings", []) or []), *manual_warnings]
+
     inputs = {
         "mode": mode,
-        "data_paths": {key: str(_as_path(value) or value) for key, value in normalized_paths.items()},
+        "data_paths": _serialize_data_paths(normalized_paths),
         "data_sources": data_sources,
-        "data_quality": _aggregate_data_quality(data_sources),
+        "data_quality": data_quality,
         "linux_identity": linux_identity,
         "linux_policy": linux_policy,
         "windows_identity_rows": windows_identity_rows,
@@ -702,8 +728,17 @@ def analyze_inputs(inputs: dict) -> dict:
 
     data_quality = _aggregate_data_quality(inputs.get("data_sources", {}))
     data_sources = inputs.get("data_sources", {})
+    data_paths = inputs.get("data_paths", {})
+    manual_warnings = [str(warning) for warning in data_paths.get("manual_cross_evidence_warnings", []) or []]
+    if manual_warnings:
+        data_quality["warnings"] = [*list(data_quality.get("warnings", []) or []), *manual_warnings]
     linux_policy_selected = not bool((data_sources.get("linux_policy", {}) or {}).get("not_selected", False))
     windows_policy_selected = not bool((data_sources.get("windows_policy", {}) or {}).get("not_selected", False))
+    manual_platform = str(data_paths.get("manual_cross_evidence_platform") or "none").strip().lower()
+    if manual_platform == "linux" and not bool((data_sources.get("linux_policy", {}) or {}).get("loaded", False)):
+        linux_policy_selected = False
+    if manual_platform == "windows" and not bool((data_sources.get("windows_policy", {}) or {}).get("loaded", False)):
+        windows_policy_selected = False
     expected_policy_baseline = dict(inputs.get("expected_policy_baseline") or {})
     if not linux_policy_selected:
         expected_policy_baseline.pop("ssh_policy", None)

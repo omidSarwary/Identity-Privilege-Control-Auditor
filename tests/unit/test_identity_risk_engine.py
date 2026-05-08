@@ -221,3 +221,33 @@ def test_linux_scope_without_manual_windows_marks_windows_sources_not_selected(t
     result = run_identity_risk_engine("production", paths, run_id="20260508-040001")
     finding_text = "\n".join(finding.get("reason", "") for finding in result["findings"])
     assert "Windows policy data was expected but not supplied" not in finding_text
+
+
+def test_partial_manual_linux_auth_log_does_not_create_policy_source_gap_finding(tmp_path) -> None:
+    """Auth-log-only manual Linux evidence should be a quality warning, not a policy finding."""
+    collected = tmp_path / "data" / "collected"
+    incoming = tmp_path / "data" / "incoming"
+    logdata_linux = tmp_path / "logdata" / "linux"
+    collected.mkdir(parents=True)
+    incoming.mkdir(parents=True)
+    logdata_linux.mkdir(parents=True)
+    (logdata_linux / "auth.log").write_text(
+        "May 08 10:00:00 host sshd[1]: Failed password for test from 192.0.2.10\n",
+        encoding="utf-8",
+    )
+    windows_sources = _write_minimal_windows_sources(collected)
+
+    paths = _data_paths(tmp_path, collected=collected, incoming=incoming)
+    paths.update({name: str(path) for name, path in windows_sources.items()})
+    paths["selected_platform"] = "windows"
+    paths["manual_cross_evidence_included"] = True
+    paths["manual_cross_evidence_platform"] = "linux"
+    paths["manual_cross_evidence_warnings"] = [
+        "Manual Linux evidence is partial: auth.log was found, but linux_identity.json and linux_policy.json were not supplied."
+    ]
+
+    result = run_identity_risk_engine("production", paths, run_id="20260508-040002")
+
+    finding_text = "\n".join(finding.get("reason", "") for finding in result["findings"])
+    assert "Linux SSH policy data was expected but not supplied" not in finding_text
+    assert any("Manual Linux evidence is partial" in warning for warning in result["data_quality"]["warnings"])

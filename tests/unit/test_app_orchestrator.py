@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import os
 from pathlib import Path
 
 import app
@@ -796,10 +797,18 @@ def test_direct_windows_mode_can_include_manual_linux(monkeypatch) -> None:
     assert captured_data_paths["analysis_scope"] == "Windows collector data + manual Linux evidence"
 
 
-def test_direct_linux_mode_can_include_manual_windows(monkeypatch) -> None:
+def test_direct_linux_mode_can_include_manual_windows(monkeypatch, tmp_path) -> None:
     """The manual Windows flag should include Windows evidence in Linux scope."""
     captured_data_paths: dict[str, object] = {}
+    incoming = tmp_path / "data" / "incoming"
+    incoming.mkdir(parents=True)
+    (incoming / "windows_events.csv").write_text(
+        "ComputerName,TimeCreated,EventId,TargetUserName,IpAddress,EventType\n",
+        encoding="utf-8",
+    )
 
+    monkeypatch.setattr(app, "DATA_INCOMING_DIR", incoming)
+    monkeypatch.setattr(app, "LOGDATA_DIR", tmp_path / "logdata")
     monkeypatch.setattr(app, "load_app_config", lambda: {"project_name": "NordSec", "version": "0.2.0", "default_mode": "linux"})
     monkeypatch.setattr(app, "bootstrap_project", lambda perform_full_checks=True: _bootstrap_status())
     monkeypatch.setattr(
@@ -1010,3 +1019,108 @@ def test_windows_manual_linux_fallback_ignores_automatic_collected_linux(monkeyp
     assert str(linux_policy) in captured_ignored
     assert str(linux_identity) in captured_data_paths["excluded_paths"]
     assert str(linux_policy) in captured_data_paths["excluded_paths"]
+
+
+def test_interactive_manual_linux_requested_but_no_files_found_disables_manual_scope(monkeypatch, tmp_path) -> None:
+    """If the user requests manual Linux evidence but supplies none, continue Windows-only."""
+    captured_data_paths: dict[str, object] = {}
+    captured_messages: list[str] = []
+    responses = iter(["windows", "1", "100", "y", ""])
+    incoming = tmp_path / "data" / "incoming"
+    logdata = tmp_path / "logdata"
+    (logdata / "linux").mkdir(parents=True)
+    incoming.mkdir(parents=True)
+
+    monkeypatch.setattr(app, "DATA_INCOMING_DIR", incoming)
+    monkeypatch.setattr(app, "LOGDATA_DIR", logdata)
+    monkeypatch.setattr(app, "load_app_config", lambda: {"project_name": "NordSec", "version": "0.2.0", "default_mode": "windows"})
+    monkeypatch.setattr(app, "bootstrap_project", lambda perform_full_checks=True: _bootstrap_status())
+    monkeypatch.setattr(
+        app,
+        "collect_windows_data",
+        lambda mode, **kwargs: {
+            "platform": "windows",
+            "mode": mode,
+            "success": True,
+            "missing_outputs": [],
+            "expected_outputs": {"windows_identity": "data/collected/windows_identity.csv"},
+            "command": {"returncode": 0},
+        },
+    )
+    monkeypatch.setattr(app, "collect_linux_data", lambda mode, **kwargs: (_ for _ in ()).throw(AssertionError("linux collector should not run")))
+    monkeypatch.setattr(app, "collect_fallback_data", lambda mode, **kwargs: (_ for _ in ()).throw(AssertionError("fallback should not run")))
+
+    def _run_identity_risk_engine(mode, data_paths, run_id):
+        captured_data_paths.update(data_paths)
+        return _mock_analysis_result(run_id, mode)
+
+    monkeypatch.setattr(app, "run_identity_risk_engine", _run_identity_risk_engine)
+    monkeypatch.setattr(app, "write_reports", lambda analysis_result: _mock_report_paths())
+    monkeypatch.setattr(app, "print_message", lambda message: captured_messages.append(message))
+    monkeypatch.setattr(app, "print_lines", lambda lines: captured_messages.extend(lines))
+
+    exit_code = app.main(["--no-bootstrap"], input_func=lambda _: next(responses))
+
+    terminal = "\n".join(captured_messages)
+    assert exit_code == 0
+    assert captured_data_paths["manual_cross_evidence_requested"] is True
+    assert captured_data_paths["manual_cross_evidence_included"] is False
+    assert captured_data_paths["analysis_scope"] == "Windows collector data only"
+    assert "No manual Linux evidence files were found" in terminal
+
+
+def test_manual_linux_auth_log_preexisting_is_reported(monkeypatch, tmp_path) -> None:
+    """Existing manual auth.log should be listed and warned as potentially stale."""
+    captured_data_paths: dict[str, object] = {}
+    captured_report: dict[str, object] = {}
+    captured_messages: list[str] = []
+    incoming = tmp_path / "data" / "incoming"
+    logdata_linux = tmp_path / "logdata" / "linux"
+    incoming.mkdir(parents=True)
+    logdata_linux.mkdir(parents=True)
+    auth_log = logdata_linux / "auth.log"
+    auth_log.write_text("May 08 10:00:00 host sshd[1]: Failed password for test from 192.0.2.10\n", encoding="utf-8")
+    os.utime(auth_log, (1000.0, 1000.0))
+
+    monkeypatch.setattr(app, "DATA_INCOMING_DIR", incoming)
+    monkeypatch.setattr(app, "LOGDATA_DIR", tmp_path / "logdata")
+    monkeypatch.setattr(app, "load_app_config", lambda: {"project_name": "NordSec", "version": "0.2.0", "default_mode": "windows"})
+    monkeypatch.setattr(app, "bootstrap_project", lambda perform_full_checks=True: _bootstrap_status())
+    monkeypatch.setattr(
+        app,
+        "collect_windows_data",
+        lambda mode, **kwargs: {
+            "platform": "windows",
+            "mode": mode,
+            "success": True,
+            "missing_outputs": [],
+            "expected_outputs": {"windows_identity": "data/collected/windows_identity.csv"},
+            "command": {"returncode": 0},
+        },
+    )
+    monkeypatch.setattr(app, "collect_linux_data", lambda mode, **kwargs: (_ for _ in ()).throw(AssertionError("linux collector should not run")))
+    monkeypatch.setattr(app, "collect_fallback_data", lambda mode, **kwargs: (_ for _ in ()).throw(AssertionError("fallback should not run")))
+
+    def _run_identity_risk_engine(mode, data_paths, run_id):
+        captured_data_paths.update(data_paths)
+        return _mock_analysis_result(run_id, mode)
+
+    def _write_reports(analysis_result):
+        captured_report.update(analysis_result)
+        return _mock_report_paths()
+
+    monkeypatch.setattr(app, "run_identity_risk_engine", _run_identity_risk_engine)
+    monkeypatch.setattr(app, "write_reports", _write_reports)
+    monkeypatch.setattr(app, "print_message", lambda message: captured_messages.append(message))
+    monkeypatch.setattr(app, "print_lines", lambda lines: captured_messages.extend(lines))
+
+    exit_code = app.main(["--mode", "windows", "--include-manual-linux", "--no-bootstrap"], input_func=lambda _: "unused")
+
+    terminal = "\n".join(captured_messages)
+    assert exit_code == 0
+    assert captured_data_paths["manual_cross_evidence_included"] is True
+    assert str(auth_log) in terminal
+    assert "file existed before this prompt" in terminal
+    assert captured_report["manual_cross_evidence_files"][0]["path"] == str(auth_log)
+    assert any("may be stale" in warning for warning in captured_report["manual_cross_evidence_warnings"])
+    assert any("partial" in warning.lower() for warning in captured_report["data_quality"]["warnings"])

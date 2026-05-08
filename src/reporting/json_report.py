@@ -31,6 +31,8 @@ def build_json_report_payload(analysis_result: Mapping[str, Any]) -> dict[str, A
         "analysis_scope": analysis_result.get("analysis_scope"),
         "manual_cross_evidence_included": bool(analysis_result.get("manual_cross_evidence_included", False)),
         "manual_cross_evidence_platform": analysis_result.get("manual_cross_evidence_platform", "none"),
+        "manual_cross_evidence_files": analysis_result.get("manual_cross_evidence_files", []),
+        "manual_cross_evidence_warnings": analysis_result.get("manual_cross_evidence_warnings", []),
         "fallback_used": bool(fallback_used) if fallback_used is not None else None,
         "fallback_reason": analysis_result.get("fallback_reason"),
         "summary": analysis_result.get("summary", {}),

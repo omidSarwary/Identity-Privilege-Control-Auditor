@@ -11,6 +11,7 @@ from __future__ import annotations
 import argparse
 from datetime import datetime, timezone
 from pathlib import Path
+import time
 from typing import Callable, Sequence
 
 from src.analysis.identity_risk_engine import run_identity_risk_engine
@@ -21,6 +22,8 @@ from src.core.bootstrap import bootstrap_project, load_app_config
 from src.core.paths import (
     BASELINES_DIR,
     DATA_COLLECTED_DIR,
+    DATA_INCOMING_DIR,
+    LOGDATA_DIR,
     PRODUCTION_CONFIG_FILE,
     TEST_CONFIG_FILE,
 )
@@ -141,12 +144,112 @@ def _analysis_scope(
     return "Selected platform collector data only"
 
 
+def _manual_evidence_candidates(platform: str) -> dict[str, Path]:
+    """Return approved manual evidence candidates for the opposite OS.
+
+    The list is deliberately limited to documented manual locations so old
+    automatic collector files in ``data/collected`` cannot be mistaken for
+    user-supplied cross-platform evidence.
+    """
+    normalized = platform.strip().lower()
+    if normalized == "linux":
+        return {
+            "linux_identity": DATA_INCOMING_DIR / "linux_identity.json",
+            "linux_policy": DATA_INCOMING_DIR / "linux_policy.json",
+            "auth_log_incoming": DATA_INCOMING_DIR / "auth.log",
+            "auth_log": LOGDATA_DIR / "linux" / "auth.log",
+        }
+    if normalized == "windows":
+        return {
+            "windows_identity": DATA_INCOMING_DIR / "windows_identity.csv",
+            "windows_events": DATA_INCOMING_DIR / "windows_events.csv",
+            "windows_policy": DATA_INCOMING_DIR / "windows_policy.csv",
+            "windows_identity_logdata": LOGDATA_DIR / "windows" / "windows_identity.csv",
+            "windows_events_logdata": LOGDATA_DIR / "windows" / "windows_events.csv",
+            "windows_policy_logdata": LOGDATA_DIR / "windows" / "windows_policy.csv",
+        }
+    return {}
+
+
+def _manual_evidence_expected_labels(platform: str) -> list[str]:
+    """Return the high-value manual evidence files expected for one platform."""
+    if platform == "linux":
+        return ["linux_identity.json", "linux_policy.json", "auth.log"]
+    if platform == "windows":
+        return ["windows_identity.csv", "windows_events.csv", "windows_policy.csv"]
+    return []
+
+
+def _scan_manual_evidence(platform: str, reference_time: float) -> dict[str, object]:
+    """Scan approved manual folders and describe discovered files.
+
+    ``reference_time`` is the moment before the user was asked to place files,
+    or the application start time for direct CLI runs. Files older than that
+    time are still allowed, but they are reported as potentially stale so the
+    user understands what evidence is being analyzed.
+    """
+    found_files: list[dict[str, object]] = []
+    warnings: list[str] = []
+    candidates = _manual_evidence_candidates(platform)
+    for source_name, path in candidates.items():
+        if not path.exists() or not path.is_file():
+            continue
+        modified_time = path.stat().st_mtime
+        existed_before_prompt = modified_time < reference_time
+        file_info = {
+            "source_name": source_name,
+            "path": str(path),
+            "modified_time": modified_time,
+            "existed_before_prompt": existed_before_prompt,
+        }
+        found_files.append(file_info)
+        if existed_before_prompt:
+            warnings.append(
+                f"Manual {platform.title()} evidence file existed before this run and may be stale: {path}"
+            )
+
+    found_names = {Path(str(item["path"])).name for item in found_files}
+    missing_expected = [name for name in _manual_evidence_expected_labels(platform) if name not in found_names]
+    if found_files and missing_expected:
+        found_text = ", ".join(sorted(found_names))
+        missing_text = ", ".join(missing_expected)
+        warnings.append(
+            f"Manual {platform.title()} evidence is partial: {found_text} was found, but {missing_text} were not supplied."
+        )
+
+    return {
+        "platform": platform,
+        "found_files": found_files,
+        "missing_expected_files": missing_expected,
+        "warnings": warnings,
+    }
+
+
+def _manual_evidence_scan_lines(scan_result: dict[str, object]) -> list[str]:
+    """Build readable terminal lines for a manual evidence scan."""
+    platform = str(scan_result.get("platform") or "manual").title()
+    lines = [f"Manual {platform} evidence scan:"]
+    found_files = list(scan_result.get("found_files", []) or [])
+    if not found_files:
+        lines.append(f"- No manual {platform} evidence files were found.")
+        return lines
+
+    for item in found_files:
+        if not isinstance(item, dict):
+            continue
+        lines.append(f"- Found: {item.get('path')}")
+        if item.get("existed_before_prompt"):
+            lines.append("- Note: file existed before this prompt and may be from an earlier run.")
+    return lines
+
+
 def _resolve_manual_cross_evidence(
     *,
     selected_platform: str,
     args: argparse.Namespace,
     interactive: bool,
     input_func: Callable[[str], str],
+    reference_time: float,
 ) -> dict[str, object]:
     """Resolve whether opposite-OS manual evidence should be included.
 
@@ -159,6 +262,9 @@ def _resolve_manual_cross_evidence(
         return {
             "manual_cross_evidence_included": False,
             "manual_cross_evidence_platform": "none",
+            "manual_cross_evidence_requested": False,
+            "manual_cross_evidence_files": [],
+            "manual_cross_evidence_warnings": [],
             "analysis_scope": _analysis_scope(
                 platform,
                 manual_cross_evidence_included=False,
@@ -172,11 +278,15 @@ def _resolve_manual_cross_evidence(
         or (platform == "linux" and bool(args.include_manual_windows))
     )
     include_manual = cli_included
+    manual_requested = cli_included
+    scan_result: dict[str, object] = {"platform": requested_platform, "found_files": [], "warnings": []}
 
     if interactive and platform == "windows" and not cli_included:
         response = input_func("Do you want to include manually exported Linux evidence as well? [y/N]: ").strip().lower()
         include_manual = response in {"y", "yes"}
+        manual_requested = include_manual
         if include_manual:
+            reference_time = time.time()
             print_lines(
                 [
                     "Place Linux evidence in one of these locations before continuing:",
@@ -187,10 +297,13 @@ def _resolve_manual_cross_evidence(
             )
             ready = input_func("Press Enter when the Linux evidence files are ready, or type skip to continue without them: ")
             include_manual = ready.strip().lower() != "skip"
+            manual_requested = include_manual
     elif interactive and platform == "linux" and not cli_included:
         response = input_func("Do you want to include manually exported Windows evidence as well? [y/N]: ").strip().lower()
         include_manual = response in {"y", "yes"}
+        manual_requested = include_manual
         if include_manual:
+            reference_time = time.time()
             print_lines(
                 [
                     "Place Windows evidence in one of these locations before continuing:",
@@ -201,11 +314,29 @@ def _resolve_manual_cross_evidence(
             )
             ready = input_func("Press Enter when the Windows evidence files are ready, or type skip to continue without them: ")
             include_manual = ready.strip().lower() != "skip"
+            manual_requested = include_manual
+
+    if include_manual:
+        scan_result = _scan_manual_evidence(requested_platform, reference_time)
+        print_lines(_manual_evidence_scan_lines(scan_result))
+        if not scan_result.get("found_files"):
+            scan_result.setdefault("warnings", [])
+            scan_result["warnings"].append(
+                f"No manual {requested_platform.title()} evidence files were found after the user requested it."
+            )
+            print_message(
+                f"No manual {requested_platform.title()} evidence files were found. "
+                f"Continuing with {platform.title()} collector data only."
+            )
+            include_manual = False
 
     manual_platform = requested_platform if include_manual else "none"
     return {
         "manual_cross_evidence_included": include_manual,
+        "manual_cross_evidence_requested": manual_requested,
         "manual_cross_evidence_platform": manual_platform,
+        "manual_cross_evidence_files": list(scan_result.get("found_files", []) or []) if include_manual else [],
+        "manual_cross_evidence_warnings": list(scan_result.get("warnings", []) or []),
         "analysis_scope": _analysis_scope(
             platform,
             manual_cross_evidence_included=include_manual,
@@ -219,7 +350,10 @@ def _attach_scope_to_data_paths(data_paths: dict[str, object], scope: dict[str, 
     updated_paths = dict(data_paths)
     updated_paths["selected_platform"] = selected_platform
     updated_paths["manual_cross_evidence_included"] = bool(scope["manual_cross_evidence_included"])
+    updated_paths["manual_cross_evidence_requested"] = bool(scope.get("manual_cross_evidence_requested", False))
     updated_paths["manual_cross_evidence_platform"] = str(scope["manual_cross_evidence_platform"])
+    updated_paths["manual_cross_evidence_files"] = list(scope.get("manual_cross_evidence_files", []) or [])
+    updated_paths["manual_cross_evidence_warnings"] = list(scope.get("manual_cross_evidence_warnings", []) or [])
     updated_paths["analysis_scope"] = str(scope["analysis_scope"])
     return updated_paths
 
@@ -697,12 +831,16 @@ def _attach_report_metadata(
     if scope:
         report_result["analysis_scope"] = scope.get("analysis_scope")
         report_result["manual_cross_evidence_included"] = bool(scope.get("manual_cross_evidence_included"))
+        report_result["manual_cross_evidence_requested"] = bool(scope.get("manual_cross_evidence_requested", False))
         report_result["manual_cross_evidence_platform"] = scope.get("manual_cross_evidence_platform", "none")
+        report_result["manual_cross_evidence_files"] = list(scope.get("manual_cross_evidence_files", []) or [])
+        report_result["manual_cross_evidence_warnings"] = list(scope.get("manual_cross_evidence_warnings", []) or [])
     fallback_warnings = [str(warning) for warning in fallback_result.get("warnings", []) or []]
-    if fallback_warnings:
+    manual_warnings = [str(warning) for warning in (scope or {}).get("manual_cross_evidence_warnings", []) or []]
+    if fallback_warnings or manual_warnings:
         data_quality = dict(report_result.get("data_quality", {}) or {})
         existing_warnings = list(data_quality.get("warnings", []) or [])
-        data_quality["warnings"] = [*existing_warnings, *fallback_warnings]
+        data_quality["warnings"] = [*existing_warnings, *fallback_warnings, *manual_warnings]
         report_result["data_quality"] = data_quality
     return report_result
 
@@ -717,6 +855,7 @@ def main(argv: Sequence[str] | None = None, input_func: Callable[[str], str] = i
     """
     args = parse_args(argv)
     run_id = create_run_id()
+    run_started_at = time.time()
     setup_logging(run_id=run_id, debug=False)
     logger = get_component_logger("app", run_id)
 
@@ -749,6 +888,7 @@ def main(argv: Sequence[str] | None = None, input_func: Callable[[str], str] = i
             args=args,
             interactive=interactive_run and platform_selection.platform != "test",
             input_func=input_func,
+            reference_time=run_started_at,
         )
         print_message(
             "Cross-platform manual evidence: "
@@ -759,6 +899,8 @@ def main(argv: Sequence[str] | None = None, input_func: Callable[[str], str] = i
             )
         )
         print_message(f"Analysis scope: {scope['analysis_scope']}")
+        if scope.get("manual_cross_evidence_warnings"):
+            print_lines([f"Warning: {warning}" for warning in scope["manual_cross_evidence_warnings"]])
         logger.info(
             "Analysis scope resolved: %s manual_cross_evidence_included=%s manual_cross_evidence_platform=%s",
             scope["analysis_scope"],
