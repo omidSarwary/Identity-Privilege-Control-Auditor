@@ -20,6 +20,7 @@ from src.collectors.windows_collector import collect_windows_data
 from src.core.bootstrap import bootstrap_project, load_app_config
 from src.core.paths import (
     BASELINES_DIR,
+    DATA_COLLECTED_DIR,
     PRODUCTION_CONFIG_FILE,
     TEST_CONFIG_FILE,
 )
@@ -226,10 +227,47 @@ def _apply_fallback_output_paths(
     return updated_paths
 
 
+def _non_selected_collected_outputs(selected_platform: str) -> tuple[list[str], list[str]]:
+    """Return automatic collector files that must not bleed across platforms.
+
+    ``data/collected`` is reserved for automatic collector output. When a
+    Windows collector succeeds, older Linux files in that directory are not
+    evidence for the current run, and the inverse is true for Linux runs.
+    Manual cross-platform evidence remains supported through ``data/incoming``
+    and the documented ``logdata`` folders.
+    """
+    platform = selected_platform.strip().lower()
+    if platform == "windows":
+        paths = [
+            DATA_COLLECTED_DIR / "linux_identity.json",
+            DATA_COLLECTED_DIR / "linux_policy.json",
+        ]
+        warnings = [
+            "Existing Linux collected data was ignored because Linux was not collected in this Windows run. "
+            "Place manual Linux evidence in data/incoming/ or logdata/linux/ if cross-platform analysis is intended."
+        ]
+    elif platform == "linux":
+        paths = [
+            DATA_COLLECTED_DIR / "windows_identity.csv",
+            DATA_COLLECTED_DIR / "windows_events.csv",
+            DATA_COLLECTED_DIR / "windows_policy.csv",
+        ]
+        warnings = [
+            "Existing Windows collected data was ignored because Windows was not collected in this Linux run. "
+            "Place manual Windows evidence in data/incoming/ or logdata/windows/ if cross-platform analysis is intended."
+        ]
+    else:
+        return [], []
+
+    existing_paths = [str(path) for path in paths if path.exists()]
+    return existing_paths, warnings if existing_paths else []
+
+
 def _build_collector_fallback_result(
     *,
     collector_results: list[dict[str, object]],
     analysis_mode: str,
+    warnings: Sequence[str] = (),
 ) -> dict[str, object]:
     """Build a fallback-style summary when platform collectors succeeded.
 
@@ -245,6 +283,7 @@ def _build_collector_fallback_result(
         "used_files": used_files,
         "missing_files": [],
         "no_data_found": not bool(used_files),
+        "warnings": list(warnings),
         "sources": {},
         "payloads": {},
     }
@@ -396,6 +435,15 @@ def _report_lines(report_paths: dict[str, Path]) -> list[str]:
     for name, path in report_paths.items():
         lines.append(format_status_line(label_map.get(name, name), "generated", str(path)))
     return lines
+
+
+def _data_quality_warning_lines(analysis_result: dict[str, object]) -> list[str]:
+    """Return important evidence-boundary warnings for terminal display."""
+    data_quality = analysis_result.get("data_quality", {})
+    if not isinstance(data_quality, dict):
+        return []
+    warnings = [str(warning) for warning in data_quality.get("warnings", []) or []]
+    return [f"Warning: {warning}" for warning in warnings if "ignored" in warning.lower()]
 
 
 def _collector_reason(collector_result: dict[str, object]) -> str:
@@ -569,11 +617,18 @@ def main(argv: Sequence[str] | None = None, input_func: Callable[[str], str] = i
             fallback_result = collect_fallback_data(mode=platform_selection.analysis_mode)
             data_paths = _apply_fallback_output_paths(data_paths, fallback_result)
         elif _collectors_succeeded(collector_results):
+            non_selected_paths, non_selected_warnings = _non_selected_collected_outputs(platform_selection.platform)
             fallback_result = _build_collector_fallback_result(
                 collector_results=collector_results,
                 analysis_mode=platform_selection.analysis_mode,
+                warnings=non_selected_warnings,
             )
             data_paths = _apply_collector_output_paths(data_paths, collector_results)
+            data_paths = _apply_fallback_output_paths(
+                data_paths,
+                fallback_result,
+                excluded_paths=non_selected_paths,
+            )
         else:
             stale_outputs = _stale_collector_outputs(collector_results)
             fallback_result = collect_fallback_data(
@@ -618,6 +673,7 @@ def main(argv: Sequence[str] | None = None, input_func: Callable[[str], str] = i
             logger.exception("Analysis failed: %s", exc)
             return safe_exit(logger, 1, f"Analysis failed: {str(exc).splitlines()[0] or 'unknown error, see log file'}")
         print_message(format_section_title(4, 6, "Analysis completed."))
+        print_lines(_data_quality_warning_lines(analysis_result))
         report_analysis_result = _attach_report_metadata(
             analysis_result,
             fallback_result,

@@ -557,3 +557,118 @@ def test_main_adds_stale_fallback_warning_to_report_metadata(monkeypatch) -> Non
     assert exit_code == 0
     data_quality = captured["analysis_result"]["data_quality"]
     assert warning in data_quality["warnings"]
+
+
+def test_windows_success_ignores_existing_linux_collected_outputs(monkeypatch, tmp_path) -> None:
+    """Successful Windows runs should exclude old automatic Linux outputs."""
+    captured_data_paths: dict[str, object] = {}
+    captured_report: dict[str, object] = {}
+    captured_lines: list[str] = []
+    collected_dir = tmp_path / "data" / "collected"
+    collected_dir.mkdir(parents=True)
+    linux_identity = collected_dir / "linux_identity.json"
+    linux_policy = collected_dir / "linux_policy.json"
+    linux_identity.write_text('{"mode": "test"}', encoding="utf-8")
+    linux_policy.write_text('{"mode": "test"}', encoding="utf-8")
+
+    monkeypatch.setattr(app, "DATA_COLLECTED_DIR", collected_dir)
+    monkeypatch.setattr(app, "load_app_config", lambda: {"project_name": "NordSec", "version": "0.2.0", "default_mode": "windows"})
+    monkeypatch.setattr(app, "bootstrap_project", lambda perform_full_checks=True: _bootstrap_status())
+    monkeypatch.setattr(
+        app,
+        "collect_windows_data",
+        lambda mode, **kwargs: {
+            "platform": "windows",
+            "mode": mode,
+            "success": True,
+            "missing_outputs": [],
+            "stale_outputs": [],
+            "expected_outputs": {"windows_identity": "data/collected/windows_identity.csv"},
+            "command": {"returncode": 0},
+            "output_statuses": {
+                "windows_identity": {
+                    "status": "collected",
+                    "reason": "output file created",
+                    "path": "data/collected/windows_identity.csv",
+                }
+            },
+        },
+    )
+    monkeypatch.setattr(app, "collect_linux_data", lambda mode, **kwargs: (_ for _ in ()).throw(AssertionError("linux collector should not run for windows selection")))
+    monkeypatch.setattr(app, "collect_fallback_data", lambda mode, **kwargs: (_ for _ in ()).throw(AssertionError("fallback should not run when Windows collector succeeds")))
+
+    def _run_identity_risk_engine(mode, data_paths, run_id):
+        captured_data_paths.update(data_paths)
+        return _mock_analysis_result(run_id, mode)
+
+    def _write_reports(analysis_result):
+        captured_report.update(analysis_result)
+        return _mock_report_paths()
+
+    monkeypatch.setattr(app, "run_identity_risk_engine", _run_identity_risk_engine)
+    monkeypatch.setattr(app, "write_reports", _write_reports)
+    monkeypatch.setattr(app, "print_message", lambda message: captured_lines.append(message))
+    monkeypatch.setattr(app, "print_lines", lambda lines: captured_lines.extend(lines))
+
+    exit_code = app.main(["--mode", "windows", "--no-bootstrap"], input_func=lambda _: "windows")
+
+    assert exit_code == 0
+    assert str(linux_identity) in captured_data_paths["excluded_paths"]
+    assert str(linux_policy) in captured_data_paths["excluded_paths"]
+    report_warnings = "\n".join(captured_report["data_quality"]["warnings"])
+    terminal_output = "\n".join(captured_lines)
+    assert "Existing Linux collected data was ignored" in report_warnings
+    assert "Existing Linux collected data was ignored" in terminal_output
+
+
+def test_linux_success_ignores_existing_windows_collected_outputs(monkeypatch, tmp_path) -> None:
+    """Successful Linux runs should exclude old automatic Windows outputs."""
+    captured_data_paths: dict[str, object] = {}
+    collected_dir = tmp_path / "data" / "collected"
+    collected_dir.mkdir(parents=True)
+    windows_identity = collected_dir / "windows_identity.csv"
+    windows_events = collected_dir / "windows_events.csv"
+    windows_policy = collected_dir / "windows_policy.csv"
+    for path in [windows_identity, windows_events, windows_policy]:
+        path.write_text("placeholder\n", encoding="utf-8")
+
+    monkeypatch.setattr(app, "DATA_COLLECTED_DIR", collected_dir)
+    monkeypatch.setattr(app, "load_app_config", lambda: {"project_name": "NordSec", "version": "0.2.0", "default_mode": "linux"})
+    monkeypatch.setattr(app, "bootstrap_project", lambda perform_full_checks=True: _bootstrap_status())
+    monkeypatch.setattr(
+        app,
+        "collect_linux_data",
+        lambda mode, **kwargs: {
+            "platform": "linux",
+            "mode": mode,
+            "success": True,
+            "missing_outputs": [],
+            "stale_outputs": [],
+            "expected_outputs": {"linux_identity": "data/collected/linux_identity.json"},
+            "command": {"returncode": 0},
+            "output_statuses": {
+                "linux_identity": {
+                    "status": "collected",
+                    "reason": "output file created",
+                    "path": "data/collected/linux_identity.json",
+                }
+            },
+        },
+    )
+    monkeypatch.setattr(app, "collect_windows_data", lambda mode, **kwargs: (_ for _ in ()).throw(AssertionError("windows collector should not run for linux selection")))
+    monkeypatch.setattr(app, "collect_fallback_data", lambda mode, **kwargs: (_ for _ in ()).throw(AssertionError("fallback should not run when Linux collector succeeds")))
+
+    def _run_identity_risk_engine(mode, data_paths, run_id):
+        captured_data_paths.update(data_paths)
+        return _mock_analysis_result(run_id, mode)
+
+    monkeypatch.setattr(app, "run_identity_risk_engine", _run_identity_risk_engine)
+    monkeypatch.setattr(app, "write_reports", lambda analysis_result: _mock_report_paths())
+    monkeypatch.setattr(app, "print_message", lambda message: None)
+
+    exit_code = app.main(["--mode", "linux", "--no-bootstrap"], input_func=lambda _: "linux")
+
+    assert exit_code == 0
+    assert str(windows_identity) in captured_data_paths["excluded_paths"]
+    assert str(windows_events) in captured_data_paths["excluded_paths"]
+    assert str(windows_policy) in captured_data_paths["excluded_paths"]

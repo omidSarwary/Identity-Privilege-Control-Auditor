@@ -204,6 +204,37 @@ def _quality_entry(
     }
 
 
+def _json_mode_warning(
+    *,
+    analysis_mode: str,
+    source_name: str,
+    path: Path,
+    payload: Mapping[str, Any],
+) -> str | None:
+    """Return a warning when JSON evidence belongs to a different run mode.
+
+    Production analysis must not treat mock/test collector output as real
+    evidence. The check is intentionally limited to explicit JSON ``mode``
+    metadata so normal production files without that optional field continue to
+    load as before.
+    """
+    evidence_mode = str(payload.get("mode") or "").strip().lower()
+    normalized_mode = str(analysis_mode).strip().lower()
+    if normalized_mode == "production" and evidence_mode == "test":
+        platform_label = "Linux" if source_name.startswith("linux_") else source_name.replace("_", " ").title()
+        return (
+            f"{platform_label} evidence file ignored because it was collected in test mode "
+            f"during a production run: {path}"
+        )
+    if normalized_mode == "test" and evidence_mode == "production":
+        platform_label = "Linux" if source_name.startswith("linux_") else source_name.replace("_", " ").title()
+        return (
+            f"{platform_label} evidence file ignored because it was collected in production mode "
+            f"during a test run: {path}"
+        )
+    return None
+
+
 def _load_json_source(
     mode: str,
     data_paths: Mapping[str, Any],
@@ -224,6 +255,7 @@ def _load_json_source(
     warnings: list[str] = []
     errors: list[str] = []
     loaded = False
+    ignored_for_mode = False
 
     if path is None:
         errors.append(f"{source_name}: file not found")
@@ -232,6 +264,18 @@ def _load_json_source(
         try:
             data = load_json_file(path)
             loaded = True
+            if isinstance(data, Mapping):
+                mode_warning = _json_mode_warning(
+                    analysis_mode=mode,
+                    source_name=source_name,
+                    path=path,
+                    payload=data,
+                )
+                if mode_warning:
+                    warnings.append(mode_warning)
+                    LOGGER.warning(mode_warning)
+                    ignored_for_mode = True
+                    data = {}
         except (FileMissingError, EmptyFileError, InvalidFormatError) as exc:
             errors.append(f"{source_name}: {exc}")
             LOGGER.error("%s could not be loaded: %s", source_name, exc)
@@ -239,7 +283,7 @@ def _load_json_source(
             errors.append(f"{source_name}: {exc}")
             LOGGER.error("%s failed with a parser error: %s", source_name, exc)
 
-    if loaded:
+    if loaded and not ignored_for_mode:
         validation = validator(data)
         warnings.extend(validation.warnings)
         errors.extend(validation.errors)
@@ -256,7 +300,7 @@ def _load_json_source(
         errors=errors,
         required=required,
     )
-    return data if loaded else {}, entry, {"warnings": warnings, "errors": errors, "valid": valid}
+    return data if loaded and not ignored_for_mode else {}, entry, {"warnings": warnings, "errors": errors, "valid": valid}
 
 
 def _load_csv_source(
