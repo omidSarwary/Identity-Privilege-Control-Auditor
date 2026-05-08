@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from pathlib import Path
 import logging
+import os
 from typing import Any
 
 from src.core.command_runner import run_command
@@ -48,25 +49,30 @@ def _inspect_outputs(expected_outputs: dict[str, Path], started_at: float) -> di
 def _collector_reason(command_result: dict[str, Any], missing_outputs: list[str], stale_outputs: list[str]) -> str:
     """Translate a raw collector result into a short human-readable reason."""
     if command_result.get("timed_out"):
-        return "collector timed out"
+        return "collector timed out; see logs/linux_audit.log and logs/python_engine.log"
 
     returncode = command_result.get("returncode")
     stderr = str(command_result.get("stderr_summary") or command_result.get("stderr") or "").lower()
 
     if returncode == 127:
-        return "command unavailable"
+        return "Bash or the Linux collector command was unavailable. See logs/linux_audit.log and logs/python_engine.log"
     if "permission denied" in stderr or "operation not permitted" in stderr:
-        return "permission denied; run with sudo/root if protected files must be inspected"
+        return "permission denied; run with sudo/root if protected files must be inspected. See logs/linux_audit.log and logs/python_engine.log"
     if "no such file" in stderr or "file not found" in stderr:
         return "file not found"
     if missing_outputs:
-        return "output file missing"
+        return "output file missing. See logs/linux_audit.log and logs/python_engine.log"
     if stale_outputs:
-        return "output file not updated in this run"
+        if os.name == "posix" and hasattr(os, "geteuid") and os.geteuid() != 0:
+            return (
+                "Linux collector did not produce fresh output. This may be caused by missing sudo/root "
+                "privileges or file ownership from a previous sudo run. See logs/linux_audit.log and logs/python_engine.log"
+            )
+        return "stale existing output ignored; file was not updated in this run. See logs/linux_audit.log and logs/python_engine.log"
     if returncode in CONTROLLED_WARNING_RETURN_CODES:
-        return "collector completed with warnings"
+        return "collector completed with warnings; see logs/linux_audit.log and logs/python_engine.log"
     if returncode not in (0, None):
-        return f"collector exited with code {returncode}"
+        return f"collector exited with code {returncode}. See logs/linux_audit.log and logs/python_engine.log"
     return "completed successfully"
 
 

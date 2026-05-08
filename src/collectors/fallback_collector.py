@@ -47,6 +47,7 @@ KNOWN_SOURCE_SPECS: dict[str, dict[str, Any]] = {
     },
     "windows_events": {
         "filename": "windows_events.csv",
+        "aliases": ["security_events.csv", "eventviewer_export.csv"],
         "kind": "csv",
         "validator": validate_windows_events,
         "required_columns": ["ComputerName", "TimeCreated", "EventId", "TargetUserName", "IpAddress", "EventType"],
@@ -197,7 +198,15 @@ def collect_fallback_data(
         selected = False
 
         for directory in search_directories:
-            candidate = directory / spec["filename"]
+            candidate_names = [spec["filename"], *list(spec.get("aliases", []) or [])]
+            candidate = None
+            for candidate_name in candidate_names:
+                possible = directory / candidate_name
+                if possible.exists() and possible.is_file():
+                    candidate = possible
+                    break
+            if candidate is None:
+                candidate = directory / spec["filename"]
             candidate_resolved = str(candidate.resolve())
             if not candidate.exists() or not candidate.is_file():
                 attempts.append(
@@ -248,7 +257,7 @@ def collect_fallback_data(
                 continue
 
             if validation.valid:
-                LOGGER.info("Fallback source selected: %s", candidate)
+                LOGGER.info("Fallback source validated as usable candidate: %s", candidate)
                 selected = True
                 selected_payload = payload
                 selected_path = candidate
@@ -298,6 +307,7 @@ def collect_fallback_data(
                 "path": str(selected_path),
                 "source_directory": str(selected_directory),
                 "valid": True,
+                "source_label": "collector" if selected_directory == DATA_COLLECTED_DIR else "fallback",
             }
         else:
             LOGGER.warning("Fallback source missing after search: %s", spec["filename"])

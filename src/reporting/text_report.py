@@ -56,10 +56,28 @@ def _source_lines(data_sources: Mapping[str, Mapping[str, Any]] | None) -> list[
     """Format the source inventory so the report shows what evidence was used."""
     lines: list[str] = []
     for name, details in (data_sources or {}).items():
-        status = "loaded" if details.get("loaded") else "missing"
-        valid = "valid" if details.get("valid") else "needs review"
+        state = str(details.get("state") or "")
+        if not state:
+            if details.get("not_selected"):
+                state = "not_selected"
+            elif details.get("loaded") and details.get("valid"):
+                state = "loaded"
+            elif details.get("loaded"):
+                state = "needs_review"
+            elif details.get("required", True):
+                state = "missing_required"
+            else:
+                state = "missing_optional"
+        review = "valid" if details.get("valid") else "needs review"
         path = details.get("path") or "n/a"
-        lines.append(f"- {name}: {status}, {valid}, path={path}")
+        source_label = details.get("source_label")
+        source_text = f", source={source_label}" if source_label else ""
+        collector_source = details.get("collector_source")
+        collector_text = f", collector_source={collector_source}" if collector_source else ""
+        if state == "not_selected":
+            lines.append(f"- {name}: not selected, path=n/a{source_text}")
+        else:
+            lines.append(f"- {name}: {state}, {review}, path={path}{source_text}{collector_text}")
     return lines
 
 
@@ -144,8 +162,8 @@ def _limitations_section(data_quality: Mapping[str, Any] | None) -> str:
         return "11. Limitations\nNo data-quality limitations were recorded.\n"
 
     lines: list[str] = ["11. Limitations"]
-    warnings = list(data_quality.get("warnings", []))
-    errors = list(data_quality.get("errors", []))
+    warnings = list(dict.fromkeys(data_quality.get("warnings", [])))
+    errors = list(dict.fromkeys(data_quality.get("errors", [])))
     if warnings:
         lines.append("Warnings:")
         lines.extend(f"- {warning}" for warning in warnings)
@@ -206,14 +224,16 @@ def build_text_report(analysis_result: Mapping[str, Any]) -> str:
         "2. Data Quality Summary",
     ]
 
-    if data_quality.get("warnings"):
+    warnings = list(dict.fromkeys(data_quality.get("warnings", [])))
+    errors = list(dict.fromkeys(data_quality.get("errors", [])))
+    if warnings:
         lines.append("Warnings:")
-        lines.extend(f"- {warning}" for warning in data_quality.get("warnings", []))
+        lines.extend(f"- {warning}" for warning in warnings)
     else:
         lines.append("- No warnings recorded.")
-    if data_quality.get("errors"):
+    if errors:
         lines.append("Errors:")
-        lines.extend(f"- {error}" for error in data_quality.get("errors", []))
+        lines.extend(f"- {error}" for error in errors)
     else:
         lines.append("- No errors recorded.")
 

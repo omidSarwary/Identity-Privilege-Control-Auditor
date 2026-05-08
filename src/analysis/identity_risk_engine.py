@@ -21,6 +21,7 @@ from src.analysis.correlation import (
     normalize_identities,
 )
 from src.analysis.scoring import summarize_findings
+from src.analysis.risk_rules import partial_platform_evidence
 from src.core.paths import (
     BASELINES_DIR,
     DATA_COLLECTED_DIR,
@@ -54,6 +55,7 @@ NON_PATH_DATA_KEYS = {
     "manual_cross_evidence_warnings",
     "analysis_scope",
     "excluded_paths",
+    "source_labels",
 }
 
 WINDOWS_IDENTITY_COLUMNS = [
@@ -215,6 +217,8 @@ def _quality_entry(
     warnings: Sequence[str] | None = None,
     errors: Sequence[str] | None = None,
     required: bool = True,
+    state: str | None = None,
+    source_label: str | None = None,
 ) -> dict[str, Any]:
     """Create a serializable quality record for one source.
 
@@ -222,6 +226,17 @@ def _quality_entry(
     analysis result can be handed to reporting code or serialized later without
     extra conversion.
     """
+    resolved_state = state
+    if resolved_state is None:
+        if loaded and valid:
+            resolved_state = "loaded"
+        elif loaded and not valid:
+            resolved_state = "invalid"
+        elif required:
+            resolved_state = "missing_required"
+        else:
+            resolved_state = "missing_optional"
+
     return {
         "path": str(path) if path is not None else None,
         "loaded": loaded,
@@ -230,6 +245,8 @@ def _quality_entry(
         "warnings": list(warnings or []),
         "errors": list(errors or []),
         "required": required,
+        "state": resolved_state,
+        "source_label": source_label,
     }
 
 
@@ -264,6 +281,34 @@ def _source_selected(mode: str, data_paths: Mapping[str, Any], source_name: str)
     return manual_included and platform == manual_platform
 
 
+def _source_required(mode: str, data_paths: Mapping[str, Any], source_name: str, default: bool = True) -> bool:
+    """Return whether a source is required for the current evidence scope."""
+    if str(mode).strip().lower() == "test":
+        return default
+
+    platform = _source_platform(source_name)
+    if platform is None:
+        return default
+
+    selected_platform = str(data_paths.get("selected_platform") or "").strip().lower()
+    manual_included = bool(data_paths.get("manual_cross_evidence_included", False))
+    manual_platform = str(data_paths.get("manual_cross_evidence_platform") or "none").strip().lower()
+
+    if selected_platform and platform == selected_platform:
+        return default
+    if manual_included and platform == manual_platform:
+        return False
+    return False
+
+
+def _source_label(data_paths: Mapping[str, Any], source_name: str) -> str:
+    """Return the evidence origin label for a source where the app supplied one."""
+    labels = data_paths.get("source_labels", {})
+    if isinstance(labels, Mapping):
+        return str(labels.get(source_name) or "")
+    return ""
+
+
 def _not_selected_quality(source_name: str, filename: str) -> dict[str, Any]:
     """Build a non-error source record for evidence outside the chosen scope."""
     return _quality_entry(
@@ -274,6 +319,8 @@ def _not_selected_quality(source_name: str, filename: str) -> dict[str, Any]:
         warnings=[],
         errors=[],
         required=False,
+        state="not_selected",
+        source_label="not_selected",
     ) | {"not_selected": True, "selection_reason": f"{filename}: source not selected for this run"}
 
 
@@ -337,8 +384,13 @@ def _load_json_source(
     path = _resolve_source_path(mode, data_paths, filename, extra_candidates=extra_candidates)
 
     if path is None:
-        errors.append(f"{source_name}: file not found")
-        LOGGER.warning("%s missing", source_name)
+        missing_message = f"{source_name}: file not found"
+        if required:
+            errors.append(missing_message)
+            LOGGER.warning("%s missing", source_name)
+        else:
+            warnings.append(missing_message)
+            LOGGER.info("%s optional source missing", source_name)
     else:
         try:
             data = load_json_file(path)
@@ -369,6 +421,8 @@ def _load_json_source(
         valid = validation.valid
     else:
         valid = False
+    if not loaded and not required and not errors:
+        valid = True
 
     entry = _quality_entry(
         path=path,
@@ -378,6 +432,7 @@ def _load_json_source(
         warnings=warnings,
         errors=errors,
         required=required,
+        source_label=_source_label(data_paths, source_name) or None,
     )
     return data if loaded and not ignored_for_mode else {}, entry, {"warnings": warnings, "errors": errors, "valid": valid}
 
@@ -414,8 +469,13 @@ def _load_csv_source(
     path = _resolve_source_path(mode, data_paths, filename, extra_candidates=extra_candidates)
 
     if path is None:
-        errors.append(f"{source_name}: file not found")
-        LOGGER.warning("%s missing", source_name)
+        missing_message = f"{source_name}: file not found"
+        if required:
+            errors.append(missing_message)
+            LOGGER.warning("%s missing", source_name)
+        else:
+            warnings.append(missing_message)
+            LOGGER.info("%s optional source missing", source_name)
     else:
         try:
             rows = load_csv_file(path, list(required_columns), allow_empty_rows=allow_empty_rows)
@@ -434,6 +494,8 @@ def _load_csv_source(
         valid = validation.valid
     else:
         valid = False
+    if not loaded and not required and not errors:
+        valid = True
 
     entry = _quality_entry(
         path=path,
@@ -443,6 +505,7 @@ def _load_csv_source(
         warnings=warnings,
         errors=errors,
         required=required,
+        source_label=_source_label(data_paths, source_name) or None,
     )
     return rows, entry, {"warnings": warnings, "errors": errors, "valid": valid}
 
@@ -495,8 +558,45 @@ def _load_text_log_source(
         warnings=warnings,
         errors=errors,
         required=required,
+        source_label=_source_label(data_paths, source_name) or None,
     )
     return lines, entry, {"warnings": warnings, "errors": errors, "valid": loaded and not errors}
+
+
+def _raw_linux_auth_log_selected(mode: str, data_paths: Mapping[str, Any]) -> bool:
+    """Return whether a raw auth.log file should be loaded for this run.
+
+    Collector-only Linux runs already carry auth events inside linux_identity.
+    Raw auth.log is loaded only when fallback/manual scope selected it or in
+    test mode where mockdata intentionally exercises the full pipeline.
+    """
+    if str(mode).strip().lower() == "test":
+        return True
+    if "linux_auth_log" in data_paths or "auth_log" in data_paths or "auth.log" in data_paths:
+        return True
+    labels = data_paths.get("source_labels", {})
+    return isinstance(labels, Mapping) and str(labels.get("linux_auth_log") or labels.get("auth_log") or "")
+
+
+def _collector_auth_events_quality(linux_identity: Mapping[str, Any], linux_identity_quality: Mapping[str, Any]) -> dict[str, Any]:
+    """Build a source record for auth events embedded in collector identity JSON."""
+    events = list(linux_identity.get("auth_events", []) or []) if isinstance(linux_identity, Mapping) else []
+    loaded = bool(linux_identity_quality.get("loaded"))
+    source_hint = "collector"
+    collector_status = linux_identity.get("collector_status", {}) if isinstance(linux_identity, Mapping) else {}
+    if isinstance(collector_status, Mapping):
+        source_hint = str(collector_status.get("auth_log_source") or collector_status.get("log_source") or "collector")
+    return _quality_entry(
+        path=Path(str(linux_identity_quality.get("path"))) if linux_identity_quality.get("path") else None,
+        loaded=loaded,
+        valid=bool(linux_identity_quality.get("valid", False)),
+        record_count=len(events),
+        warnings=[],
+        errors=[],
+        required=False,
+        state="loaded" if loaded else "not_selected",
+        source_label="collector",
+    ) | {"collector_source": source_hint}
 
 
 def _validate_expected_policy_baseline(data: Mapping[str, Any]) -> ValidationStatus:
@@ -526,10 +626,41 @@ def _aggregate_data_quality(sources: Mapping[str, Mapping[str, Any]]) -> dict[st
 
     return {
         "valid": valid,
-        "warnings": warnings,
-        "errors": errors,
+        "warnings": list(dict.fromkeys(warnings)),
+        "errors": list(dict.fromkeys(errors)),
         "sources": sources,
     }
+
+
+def _partial_evidence_findings(
+    sources: Mapping[str, Mapping[str, Any]],
+    data_paths: Mapping[str, Any],
+) -> list[dict[str, str]]:
+    """Build exact source-gap findings for incomplete selected-platform evidence."""
+    selected_platform = str(data_paths.get("selected_platform") or "").strip().lower()
+    findings: list[dict[str, str]] = []
+    required_sources = {
+        "windows": ["windows_identity", "windows_events", "windows_policy"],
+        "linux": ["linux_identity", "linux_policy", "linux_auth_events"],
+    }
+    if selected_platform not in required_sources:
+        return findings
+
+    available: list[str] = []
+    missing: list[str] = []
+    for source_name in required_sources[selected_platform]:
+        entry = sources.get(source_name, {})
+        if entry.get("loaded") and entry.get("valid", False):
+            available.append(source_name)
+        elif entry.get("required", False) and not entry.get("not_selected", False):
+            missing.append(source_name)
+
+    finding = partial_platform_evidence(
+        platform=selected_platform,
+        available_sources=available,
+        missing_sources=missing,
+    )
+    return [finding] if finding else []
 
 
 def load_analysis_inputs(mode: str, data_paths: dict) -> dict:
@@ -557,7 +688,7 @@ def load_analysis_inputs(mode: str, data_paths: dict) -> dict:
         "linux_identity.json",
         validate_linux_identity,
         extra_candidates=("linux/linux_identity.json",),
-        required=True,
+        required=_source_required(mode, normalized_paths, "linux_identity", True),
     )
     linux_policy, linux_policy_quality, _ = _load_json_source(
         mode,
@@ -566,7 +697,7 @@ def load_analysis_inputs(mode: str, data_paths: dict) -> dict:
         "linux_policy.json",
         validate_linux_policy,
         extra_candidates=("linux/linux_policy.json",),
-        required=True,
+        required=_source_required(mode, normalized_paths, "linux_policy", True),
     )
     windows_identity_rows, windows_identity_quality, _ = _load_csv_source(
         mode,
@@ -576,7 +707,7 @@ def load_analysis_inputs(mode: str, data_paths: dict) -> dict:
         WINDOWS_IDENTITY_COLUMNS,
         validate_windows_identity,
         extra_candidates=("windows/windows_identity.csv",),
-        required=True,
+        required=_source_required(mode, normalized_paths, "windows_identity", True),
     )
     windows_events_rows, windows_events_quality, _ = _load_csv_source(
         mode,
@@ -585,8 +716,8 @@ def load_analysis_inputs(mode: str, data_paths: dict) -> dict:
         "windows_events.csv",
         WINDOWS_EVENTS_COLUMNS,
         validate_windows_events,
-        extra_candidates=("windows/windows_events.csv",),
-        required=True,
+        extra_candidates=("windows/windows_events.csv", "security_events.csv", "eventviewer_export.csv", "windows/security_events.csv", "windows/eventviewer_export.csv"),
+        required=_source_required(mode, normalized_paths, "windows_events", True),
         allow_empty_rows=True,
     )
     windows_policy_rows, windows_policy_quality, _ = _load_csv_source(
@@ -597,7 +728,7 @@ def load_analysis_inputs(mode: str, data_paths: dict) -> dict:
         WINDOWS_POLICY_COLUMNS,
         validate_windows_policy,
         extra_candidates=("windows/windows_policy.csv",),
-        required=True,
+        required=_source_required(mode, normalized_paths, "windows_policy", True),
     )
     approved_linux_sudoers, approved_linux_quality, _ = _load_csv_source(
         mode,
@@ -653,14 +784,26 @@ def load_analysis_inputs(mode: str, data_paths: dict) -> dict:
             expected_policy_errors.append(f"expected_policy_baseline: {exc}")
             LOGGER.error("expected_policy_baseline failed with a parser error: %s", exc)
 
-    linux_auth_log_lines, linux_auth_log_quality, _ = _load_text_log_source(
-        mode,
-        normalized_paths,
-        "linux_auth_log",
-        "auth.log",
-        extra_candidates=("linux/auth.log",),
-        required=False,
-    )
+    if _raw_linux_auth_log_selected(mode, normalized_paths):
+        linux_auth_log_lines, linux_auth_log_quality, _ = _load_text_log_source(
+            mode,
+            normalized_paths,
+            "linux_auth_log",
+            "auth.log",
+            extra_candidates=("linux/auth.log",),
+            required=False,
+        )
+    else:
+        linux_auth_log_lines = []
+        linux_auth_log_quality = _quality_entry(
+            path=None,
+            loaded=False,
+            valid=True,
+            record_count=0,
+            required=False,
+            state="not_selected",
+            source_label="not_selected",
+        ) | {"not_selected": True, "selection_reason": "auth.log: raw auth log not selected for this run"}
 
     data_sources = {
         "linux_identity": linux_identity_quality,
@@ -680,13 +823,14 @@ def load_analysis_inputs(mode: str, data_paths: dict) -> dict:
             errors=expected_policy_errors,
             required=True,
         ),
+        "linux_auth_events": _collector_auth_events_quality(linux_identity, linux_identity_quality),
         "linux_auth_log": linux_auth_log_quality,
     }
 
     data_quality = _aggregate_data_quality(data_sources)
     manual_warnings = [str(warning) for warning in normalized_paths.get("manual_cross_evidence_warnings", []) or []]
     if manual_warnings:
-        data_quality["warnings"] = [*list(data_quality.get("warnings", []) or []), *manual_warnings]
+        data_quality["warnings"] = list(dict.fromkeys([*list(data_quality.get("warnings", []) or []), *manual_warnings]))
 
     inputs = {
         "mode": mode,
@@ -731,7 +875,7 @@ def analyze_inputs(inputs: dict) -> dict:
     data_paths = inputs.get("data_paths", {})
     manual_warnings = [str(warning) for warning in data_paths.get("manual_cross_evidence_warnings", []) or []]
     if manual_warnings:
-        data_quality["warnings"] = [*list(data_quality.get("warnings", []) or []), *manual_warnings]
+        data_quality["warnings"] = list(dict.fromkeys([*list(data_quality.get("warnings", []) or []), *manual_warnings]))
     linux_policy_selected = not bool((data_sources.get("linux_policy", {}) or {}).get("not_selected", False))
     windows_policy_selected = not bool((data_sources.get("windows_policy", {}) or {}).get("not_selected", False))
     manual_platform = str(data_paths.get("manual_cross_evidence_platform") or "none").strip().lower()
@@ -777,6 +921,7 @@ def analyze_inputs(inputs: dict) -> dict:
         approved_windows_admins=inputs.get("approved_windows_admins"),
         approved_service_accounts=inputs.get("approved_service_accounts"),
     )
+    findings.extend(_partial_evidence_findings(data_sources, data_paths))
     summary = summarize_findings(findings)
 
     analysis_result = {

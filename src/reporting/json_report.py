@@ -24,6 +24,7 @@ def build_json_report_payload(analysis_result: Mapping[str, Any]) -> dict[str, A
     later automation steps and in the final project hand-in.
     """
     fallback_used = analysis_result.get("fallback_used")
+    manual_warnings = list(dict.fromkeys(analysis_result.get("manual_cross_evidence_warnings", []) or []))
     return {
         "run_id": analysis_result.get("run_id", "unknown"),
         "mode": analysis_result.get("mode", "test"),
@@ -32,7 +33,7 @@ def build_json_report_payload(analysis_result: Mapping[str, Any]) -> dict[str, A
         "manual_cross_evidence_included": bool(analysis_result.get("manual_cross_evidence_included", False)),
         "manual_cross_evidence_platform": analysis_result.get("manual_cross_evidence_platform", "none"),
         "manual_cross_evidence_files": analysis_result.get("manual_cross_evidence_files", []),
-        "manual_cross_evidence_warnings": analysis_result.get("manual_cross_evidence_warnings", []),
+        "manual_cross_evidence_warnings": manual_warnings,
         "fallback_used": bool(fallback_used) if fallback_used is not None else None,
         "fallback_reason": analysis_result.get("fallback_reason"),
         "summary": analysis_result.get("summary", {}),

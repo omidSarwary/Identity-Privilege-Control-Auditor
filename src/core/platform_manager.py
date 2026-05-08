@@ -35,6 +35,7 @@ class PlatformSelection:
     instructions: str
     log_hours: int = DEFAULT_LOG_HOURS
     max_events: int = DEFAULT_MAX_EVENTS
+    messages: tuple[str, ...] = ()
 
     def to_dict(self) -> dict[str, object]:
         """Return a serializable representation of the platform selection."""
@@ -94,23 +95,39 @@ def choose_platform(
     validates and describes the choice; it does not start collectors or modify
     system state.
     """
+    user_messages: list[str] = []
+
     def _resolve_collection_value(raw_value: str | int | None, *, default: int, upper_bound: int, label: str) -> int:
-        """Resolve one collection-window value with safe validation and clamping."""
+        """Resolve one collection-window value with safe validation and clamping.
+
+        User-facing messages are stored on the final selection so app.py can
+        print the same safety decision that is written to the audit log.
+        """
         if raw_value is None or str(raw_value).strip() == "":
             return default
 
         try:
             resolved = int(str(raw_value).strip())
         except ValueError:
-            LOGGER.warning("%s value '%s' is invalid; using default %s.", label, raw_value, default)
+            message = f"{label} value '{raw_value}' is invalid; using default {default}."
+            LOGGER.warning(message)
+            user_messages.append(message)
             return default
 
         if resolved <= 0:
-            LOGGER.warning("%s value '%s' must be positive; using default %s.", label, raw_value, default)
+            message = f"{label} value '{raw_value}' must be positive; using default {default}."
+            LOGGER.warning(message)
+            user_messages.append(message)
             return default
 
         if resolved > upper_bound:
-            LOGGER.warning("%s value '%s' exceeds the maximum %s; clamping to %s.", label, raw_value, upper_bound, upper_bound)
+            message = f"{label} value '{raw_value}' exceeds the maximum {upper_bound}; clamping to {upper_bound}."
+            LOGGER.warning(message)
+            user_messages.append("Input exceeded safety limits.")
+            if "hours" in label.lower():
+                user_messages.append(f"Using maximum allowed {label.lower()}: {upper_bound}.")
+            else:
+                user_messages.append(f"Using maximum allowed {label.lower()}: {upper_bound}.")
             return upper_bound
 
         return resolved
@@ -195,7 +212,7 @@ def choose_platform(
                 "Linux max events/lines [1000]: ",
                 default=DEFAULT_MAX_EVENTS,
                 upper_bound=MAX_MAX_EVENTS,
-                label="Linux max events",
+                label="Linux max events/lines",
             )
         resolved_log_hours = _resolve_collection_value(
             linux_log_hours,
@@ -207,7 +224,7 @@ def choose_platform(
             linux_max_events,
             default=DEFAULT_MAX_EVENTS,
             upper_bound=MAX_MAX_EVENTS,
-            label="Linux max events",
+            label="Linux max events/lines",
         )
     else:
         resolved_log_hours = DEFAULT_LOG_HOURS
@@ -220,6 +237,7 @@ def choose_platform(
         log_hours=resolved_log_hours,
         max_events=resolved_max_events,
         instructions=f"{HYBRID_LOGGING_NOTICE} {_build_instructions(platform)}",
+        messages=tuple(dict.fromkeys(user_messages)),
     )
     LOGGER.info(
         "Collection window resolved: platform=%s log_hours=%s max_events=%s",

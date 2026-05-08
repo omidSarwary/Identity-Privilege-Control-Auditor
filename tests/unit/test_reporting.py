@@ -184,3 +184,40 @@ def test_text_and_json_reports_include_test_selected_platform(tmp_path) -> None:
 
     assert "Platform selected: test" in text_report
     assert payload["selected_platform"] == "test"
+
+
+def test_report_renders_not_selected_without_missing_valid_wording(tmp_path) -> None:
+    """Source states should not show the confusing phrase 'missing, valid'."""
+    analysis_result = _platform_report_result("windows")
+    analysis_result["data_sources"] = {
+        "linux_identity": {
+            "loaded": False,
+            "valid": True,
+            "required": False,
+            "state": "not_selected",
+            "not_selected": True,
+            "path": None,
+            "source_label": "not_selected",
+        }
+    }
+
+    artifacts = write_reports(analysis_result, output_root=tmp_path)
+    text_report = artifacts["text_report"].read_text(encoding="utf-8")
+
+    assert "linux_identity: not selected, path=n/a" in text_report
+    assert "missing, valid" not in text_report
+
+
+def test_report_deduplicates_repeated_warnings(tmp_path) -> None:
+    """Repeated data-quality warnings should render once per report section."""
+    analysis_result = _platform_report_result("windows")
+    duplicate = "Manual Linux evidence file appears older than this run and may be stale: logdata/linux/auth.log"
+    analysis_result["data_quality"]["warnings"] = [duplicate, duplicate]
+    analysis_result["manual_cross_evidence_warnings"] = [duplicate, duplicate]
+
+    artifacts = write_reports(analysis_result, output_root=tmp_path)
+    text_report = artifacts["text_report"].read_text(encoding="utf-8")
+    payload = json.loads(artifacts["json_report"].read_text(encoding="utf-8"))
+
+    assert text_report.count(duplicate) == 2
+    assert payload["manual_cross_evidence_warnings"] == [duplicate]

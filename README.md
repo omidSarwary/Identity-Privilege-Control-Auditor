@@ -105,6 +105,8 @@ logic:
   on Linux when protected logs or policy files must be read
 - interactive production mode prompts for a log lookback window and a maximum
   event or line limit, with safe defaults of 24 hours and 1000 items
+- log collection input is clamped at 720 hours and 10000 events or lines to
+  prevent accidental unbounded collection
 - manually exported evidence can be placed in `data/incoming/`
 - raw logs can be placed in `logdata/linux/` or `logdata/windows/`
 - optional cross-platform evidence must be placed in `data/incoming/`,
@@ -112,6 +114,41 @@ logic:
 - if older logs are needed, export them manually and place them in
   `data/incoming/`, `logdata/linux/`, or `logdata/windows/`
 - fallback is used when the primary collector does not produce usable output
+
+If a previous Linux run used sudo and a later non-sudo run cannot write runtime
+files, fix ownership before running again:
+
+```bash
+sudo chown -R $USER:$USER logs reports data/alerts data/collected
+```
+
+## Evidence Sources and States
+
+Production runs are selected-platform only by default. Windows mode collects
+Windows evidence, and Linux mode collects Linux evidence. Evidence from the
+other operating system is included only when explicitly selected with the
+interactive prompt or with `--include-manual-linux` / `--include-manual-windows`.
+
+Reports use explicit source states:
+
+- `loaded`: evidence was read and validated
+- `not selected`: the source was outside the selected analysis scope
+- `missing_required`: selected-platform evidence was expected but not available
+- `missing_optional`: optional manual evidence was requested but not supplied
+- `ignored`: a candidate was excluded, for example stale or out of scope
+- `invalid` or `needs review`: a file was present but failed validation
+
+Supported manual evidence filenames are:
+
+- Linux: `linux_identity.json`, `linux_policy.json`, `auth.log`
+- Windows: `windows_identity.csv`, `windows_events.csv`, `windows_policy.csv`
+- Windows event aliases: `security_events.csv` and `eventviewer_export.csv`,
+  only when they use the same schema as `windows_events.csv`
+
+The minimal Linux policy JSON must contain a `policy.ssh_policy` mapping with
+`permit_root_login`, `password_authentication`, and `pubkey_authentication`.
+Windows event CSV files must contain:
+`ComputerName,TimeCreated,EventId,TargetUserName,IpAddress,EventType`.
 
 ## Test Mode
 

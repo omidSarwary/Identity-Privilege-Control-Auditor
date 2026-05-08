@@ -92,6 +92,8 @@ Linux collector output in `data/collected/`.
 
 Interactive production mode prompts for the same values and falls back to the
 safe defaults of 24 hours and 1000 events or lines when Enter is pressed.
+Values above the safety bounds are clamped to 720 hours and 10000 events or
+lines, and the console reports that clamping decision.
 If the run is not elevated, fallback may be used and the resulting reports may
 be partial because some protected sources were not readable.
 
@@ -139,6 +141,43 @@ when explicitly selected and should be placed in:
 
 Examples include `linux_identity.json`, `linux_policy.json`, `auth.log`,
 `windows_identity.csv`, `windows_events.csv`, and `windows_policy.csv`.
+The manual Windows event aliases `security_events.csv` and
+`eventviewer_export.csv` are accepted only when they use the same columns as
+`windows_events.csv`: `ComputerName`, `TimeCreated`, `EventId`,
+`TargetUserName`, `IpAddress`, and `EventType`.
+
+The minimal valid Linux policy JSON must include:
+
+```json
+{
+  "source": "linux",
+  "host": "hostname",
+  "collection_time": "2026-05-08T00:00:00Z",
+  "mode": "production",
+  "policy": {
+    "ssh_policy": {
+      "permit_root_login": "no",
+      "password_authentication": "no",
+      "pubkey_authentication": "yes"
+    }
+  }
+}
+```
+
+Reports distinguish evidence states:
+
+- `loaded`: the file was loaded and validated
+- `not selected`: the source was outside the chosen analysis scope
+- `missing_required`: selected-platform evidence was expected but unavailable
+- `missing_optional`: optional manual evidence was requested but not supplied
+- `ignored`: a candidate was excluded, usually because it was stale or out of scope
+- `needs review`: a present file failed validation or needs operator review
+
+If runtime files become owned by root after a sudo run, fix ownership with:
+
+```bash
+sudo chown -R $USER:$USER logs reports data/alerts data/collected
+```
 
 ## Safe Exit
 

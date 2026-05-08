@@ -179,7 +179,7 @@ def test_collect_windows_data_rejects_stale_outputs_when_command_fails(monkeypat
     assert result["missing_outputs"] == []
     assert sorted(result["stale_outputs"]) == sorted([str(identity_path), str(events_path), str(policy_path)])
     assert result["current_outputs"] == []
-    assert result["reason"] == "command unavailable"
+    assert "PowerShell was not found" in result["reason"]
     assert result["output_statuses"]["windows_events"]["status"] == "not collected in this run"
 
 

@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import logging
 from collections import defaultdict
+from datetime import datetime, timezone
 from typing import Any, Mapping, Sequence
 
 from src.analysis.risk_rules import RiskLevel
@@ -17,6 +18,7 @@ RISK_SCORE_BY_LEVEL = {
     RiskLevel.MEDIUM.value: 40,
     RiskLevel.LOW.value: 10,
 }
+WINDOWS_INACTIVITY_DAYS = 90
 
 
 def _truthy(value: Any) -> bool:
@@ -90,6 +92,28 @@ def _merge_privilege(record: dict[str, Any], privilege: str) -> None:
         record["privileges"].append(normalized_privilege)
 
 
+def _parse_timestamp(value: Any) -> datetime | None:
+    """Parse common collector timestamp strings into timezone-aware UTC time."""
+    text = str(value or "").strip()
+    if not text:
+        return None
+    candidates = [text, text.replace("Z", "+00:00")]
+    for candidate in candidates:
+        try:
+            parsed = datetime.fromisoformat(candidate)
+            if parsed.tzinfo is None:
+                parsed = parsed.replace(tzinfo=timezone.utc)
+            return parsed.astimezone(timezone.utc)
+        except ValueError:
+            continue
+    for fmt in ("%Y-%m-%d %H:%M:%S", "%m/%d/%Y %I:%M:%S %p", "%d/%m/%Y %H:%M:%S"):
+        try:
+            return datetime.strptime(text, fmt).replace(tzinfo=timezone.utc)
+        except ValueError:
+            continue
+    return None
+
+
 def normalize_identities(
     linux_identity: Mapping[str, Any] | None = None,
     windows_identity_rows: Sequence[Mapping[str, Any]] | None = None,
@@ -148,7 +172,13 @@ def normalize_identities(
             _merge_privilege(record, "local_admin")
 
         if row.get("LastLogon") is not None or row.get("last_logon") is not None:
-            record["last_logon"] = str(row.get("LastLogon") or row.get("last_logon") or "")
+            last_logon = str(row.get("LastLogon") or row.get("last_logon") or "")
+            record["last_logon"] = last_logon
+            parsed_last_logon = _parse_timestamp(last_logon)
+            if parsed_last_logon is not None:
+                inactive_cutoff = datetime.now(timezone.utc).timestamp() - (WINDOWS_INACTIVITY_DAYS * 24 * 60 * 60)
+                if parsed_last_logon.timestamp() < inactive_cutoff:
+                    record["is_inactive"] = True
 
         if _truthy(row.get("Enabled", True)):
             _update_status(record, "enabled")

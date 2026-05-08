@@ -128,11 +128,17 @@ def unauthorized_windows_admin(
     """
     username = _identity_name(identity)
     if _is_truthy(identity.get("is_local_admin")) and username not in approved_admins:
+        enabled = _is_truthy(identity.get("enabled", True))
+        reason = (
+            "The disabled account still appears in local administrator membership but is not listed in the approved baseline."
+            if not enabled
+            else "The account is a local administrator but is not listed in the approved baseline."
+        )
         return create_finding(
             risk_level=RiskLevel.CRITICAL,
             identity=username,
             finding="Unapproved Windows administrators member",
-            reason="The account is a local administrator but is not listed in the approved baseline.",
+            reason=reason,
             source=source,
             recommended_action="Review local administrator membership against the approved baseline.",
         )
@@ -439,4 +445,32 @@ def missing_log_source_but_other_data_exists(
         reason=reason,
         source=source,
         recommended_action="Proceed with partial analysis and note the source gap in reporting.",
+    )
+
+
+def partial_platform_evidence(
+    *,
+    platform: str,
+    available_sources: Sequence[str],
+    missing_sources: Sequence[str],
+    source: str = "data_quality",
+) -> dict[str, str] | None:
+    """Return a medium source-gap finding for incomplete platform evidence.
+
+    Expects the platform name plus exact available and missing source names.
+    The wording avoids calling every gap a log-source issue, which keeps the
+    report accurate when identity or policy files are missing.
+    """
+    if not available_sources or not missing_sources:
+        return None
+    platform_label = platform.strip().title()
+    available_text = ", ".join(available_sources)
+    missing_text = ", ".join(missing_sources)
+    return create_finding(
+        risk_level=RiskLevel.MEDIUM,
+        identity="system_policy",
+        finding=f"Partial {platform_label} evidence",
+        reason=f"{platform_label} evidence was partial: {available_text} was available, but {missing_text} was missing.",
+        source=source,
+        recommended_action="Re-collect or supply the missing evidence sources before making final access decisions.",
     )

@@ -54,23 +54,23 @@ def _inspect_outputs(expected_outputs: dict[str, Path], started_at: float) -> di
 def _collector_reason(command_result: dict[str, Any], missing_outputs: list[str], stale_outputs: list[str]) -> str:
     """Translate a raw collector result into a short human-readable reason."""
     if command_result.get("timed_out"):
-        return "collector timed out"
+        return "collector timed out; see logs/windows_audit.log and logs/python_engine.log"
 
     returncode = command_result.get("returncode")
     stderr = str(command_result.get("stderr_summary") or command_result.get("stderr") or "").lower()
 
     if returncode == 127:
-        return "command unavailable"
+        return "PowerShell was not found. Windows collection cannot run on this host."
     if "access is denied" in stderr or "permission denied" in stderr:
-        return "access denied; run PowerShell as Administrator"
+        return "access denied; run PowerShell as Administrator. See logs/windows_audit.log and logs/python_engine.log"
     if "not recognized" in stderr:
-        return "command unavailable"
+        return "PowerShell command unavailable. See logs/windows_audit.log and logs/python_engine.log"
     if missing_outputs:
-        return "output file missing"
+        return "output file missing. See logs/windows_audit.log and logs/python_engine.log"
     if stale_outputs:
-        return "output file not updated in this run"
+        return "stale existing output ignored; file was not updated in this run. See logs/windows_audit.log and logs/python_engine.log"
     if returncode not in (0, None):
-        return f"collector exited with code {returncode}"
+        return f"collector exited with code {returncode}. See logs/windows_audit.log and logs/python_engine.log"
     return "completed successfully"
 
 
@@ -123,14 +123,23 @@ def collect_windows_data(
     selected_mode = _normalized_mode(mode)
     executable = _resolve_powershell_executable()
     if executable is None:
+        reason = "PowerShell was not found. Windows collection cannot run on this host."
         LOGGER.error("No PowerShell host was found on this system")
+        expected_outputs = {name: str(path) for name, path in EXPECTED_OUTPUTS.items()}
         return {
             "platform": "windows",
             "mode": selected_mode,
             "command": None,
-            "expected_outputs": {name: str(path) for name, path in EXPECTED_OUTPUTS.items()},
+            "expected_outputs": expected_outputs,
             "missing_outputs": [str(path) for path in EXPECTED_OUTPUTS.values()],
+            "stale_outputs": [],
+            "current_outputs": [],
             "success": False,
+            "reason": reason,
+            "output_statuses": {
+                name: {"status": "not collected", "reason": reason, "path": path}
+                for name, path in expected_outputs.items()
+            },
         }
 
     command = [

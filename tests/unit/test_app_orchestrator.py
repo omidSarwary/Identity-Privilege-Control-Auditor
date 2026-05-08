@@ -760,10 +760,17 @@ def test_direct_linux_mode_defaults_to_no_manual_windows(monkeypatch) -> None:
     assert captured_data_paths["analysis_scope"] == "Linux collector data only"
 
 
-def test_direct_windows_mode_can_include_manual_linux(monkeypatch) -> None:
+def test_direct_windows_mode_can_include_manual_linux(monkeypatch, tmp_path) -> None:
     """The manual Linux flag should include Linux evidence in Windows scope."""
     captured_data_paths: dict[str, object] = {}
+    logdata_linux = tmp_path / "logdata" / "linux"
+    logdata_linux.mkdir(parents=True)
+    (logdata_linux / "auth.log").write_text(
+        "May 08 10:00:00 host sshd[1]: Failed password for test from 192.0.2.10\n",
+        encoding="utf-8",
+    )
 
+    monkeypatch.setattr(app, "LOGDATA_DIR", tmp_path / "logdata")
     monkeypatch.setattr(app, "load_app_config", lambda: {"project_name": "NordSec", "version": "0.2.0", "default_mode": "windows"})
     monkeypatch.setattr(app, "bootstrap_project", lambda perform_full_checks=True: _bootstrap_status())
     monkeypatch.setattr(
@@ -1120,7 +1127,69 @@ def test_manual_linux_auth_log_preexisting_is_reported(monkeypatch, tmp_path) ->
     assert exit_code == 0
     assert captured_data_paths["manual_cross_evidence_included"] is True
     assert str(auth_log) in terminal
-    assert "file existed before this prompt" in terminal
+    assert "file appears older than this run and may be stale" in terminal
     assert captured_report["manual_cross_evidence_files"][0]["path"] == str(auth_log)
     assert any("may be stale" in warning for warning in captured_report["manual_cross_evidence_warnings"])
-    assert any("partial" in warning.lower() for warning in captured_report["data_quality"]["warnings"])
+
+
+def test_wrong_os_linux_mode_reports_clear_guidance_and_safe_exits(monkeypatch, capsys) -> None:
+    """Linux mode on an unsupported host should explain the wrong-OS condition."""
+    monkeypatch.setattr(app, "_host_supports_platform", lambda platform: (False, "Linux mode was selected, but this appears to be a Windows environment. The Linux Bash collector cannot run here. Run Linux mode from Linux/WSL, or choose Windows mode."))
+    monkeypatch.setattr(app, "load_app_config", lambda: {"project_name": "NordSec", "version": "0.2.0", "default_mode": "linux"})
+    monkeypatch.setattr(app, "bootstrap_project", lambda perform_full_checks=True: _bootstrap_status())
+    monkeypatch.setattr(
+        app,
+        "collect_fallback_data",
+        lambda mode, **kwargs: {
+            "fallback_activated": True,
+            "fallback_reason": "No fallback data was found in any configured directory.",
+            "no_data_found": True,
+            "used_files": {},
+            "missing_files": ["linux_identity.json"],
+            "searched_directories": ["data/collected"],
+            "warnings": [],
+        },
+    )
+
+    exit_code = app.main(["--mode", "linux", "--no-bootstrap"], input_func=lambda _: "unused")
+
+    output = capsys.readouterr().out
+    assert exit_code == 1
+    assert "Linux Bash collector cannot run here" in output
+    assert output.count("No valid evidence files were found.") == 1
+
+
+def test_wrong_os_windows_mode_with_manual_evidence_can_continue(monkeypatch, tmp_path) -> None:
+    """Wrong-OS preflight may continue when explicit in-scope manual evidence exists."""
+    captured_data_paths: dict[str, object] = {}
+    incoming = tmp_path / "data" / "incoming"
+    incoming.mkdir(parents=True)
+    (incoming / "windows_events.csv").write_text(
+        "ComputerName,TimeCreated,EventId,TargetUserName,IpAddress,EventType\n",
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(app, "DATA_INCOMING_DIR", incoming)
+    monkeypatch.setattr(app, "LOGDATA_DIR", tmp_path / "logdata")
+    monkeypatch.setattr(app, "_host_supports_platform", lambda platform: (False, "Windows mode was selected, but this appears to be a Linux environment. The Windows PowerShell collector cannot run here. Choose Linux mode, or provide manually exported Windows evidence."))
+    monkeypatch.setattr(app, "load_app_config", lambda: {"project_name": "NordSec", "version": "0.2.0", "default_mode": "windows"})
+    monkeypatch.setattr(app, "bootstrap_project", lambda perform_full_checks=True: _bootstrap_status())
+    monkeypatch.setattr(
+        app,
+        "collect_fallback_data",
+        lambda mode, **kwargs: {
+            "fallback_activated": True,
+            "fallback_reason": "Primary collector output was incomplete, so fallback sources were used.",
+            "no_data_found": False,
+            "used_files": {"windows_events": {"path": str(incoming / "windows_events.csv"), "source_directory": str(incoming), "valid": True}},
+            "missing_files": [],
+            "searched_directories": [str(incoming)],
+            "warnings": [],
+        },
+    )
+    monkeypatch.setattr(app, "run_identity_risk_engine", lambda mode, data_paths, run_id: captured_data_paths.update(data_paths) or _mock_analysis_result(run_id, mode))
+    monkeypatch.setattr(app, "write_reports", lambda analysis_result: _mock_report_paths())
+
+    exit_code = app.main(["--mode", "windows", "--no-bootstrap"], input_func=lambda _: "unused")
+
+    assert exit_code == 0
+    assert captured_data_paths["windows_events"] == str(incoming / "windows_events.csv")

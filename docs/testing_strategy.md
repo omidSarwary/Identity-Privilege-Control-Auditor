@@ -50,6 +50,8 @@ These sensor runs may write most of their evidence to `data/collected/` and
 confirmed by exit code `0` and by validating the generated output files.
 Production verification may require Administrator rights on Windows or
 sudo/root on Linux if protected logs and policy files must be read.
+Collection-window inputs above 720 hours or 10000 events/lines should be
+clamped and reported in the terminal.
 
 Suggested file checks:
 
@@ -79,6 +81,21 @@ mode does not load Windows evidence unless `--include-manual-windows` is used.
 Manual evidence for the other operating system should be placed in
 `data/incoming/`, `logdata/linux/`, or `logdata/windows/` before running the
 manual cross-platform test.
+
+Manual Windows event files may use `windows_events.csv`, `security_events.csv`,
+or `eventviewer_export.csv` when the schema matches the canonical
+`ComputerName,TimeCreated,EventId,TargetUserName,IpAddress,EventType` columns.
+Manual Linux policy tests should include `policy.ssh_policy` with the expected
+SSH keys. Reports should show source states such as `loaded`, `not selected`,
+`missing_required`, `missing_optional`, `ignored`, and `needs review` instead
+of ambiguous wording.
+
+After testing with sudo on Linux, a non-sudo run should fail gracefully if
+runtime files are no longer writable. The documented recovery command is:
+
+```bash
+sudo chown -R $USER:$USER logs reports data/alerts data/collected
+```
 
 ## QA Summary
 

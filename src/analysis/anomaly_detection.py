@@ -11,7 +11,6 @@ from src.analysis.risk_rules import (
     disabled_account_with_inactivity,
     inactive_account_with_privileges,
     missing_audit_policy,
-    missing_log_source_but_other_data_exists,
     multiple_failed_logins_from_same_ip,
     normal_user_single_failed_logins,
     privileged_account_with_multiple_failed_logins,
@@ -194,24 +193,6 @@ def detect_anomalies(
             audit_finding["identity"] = SYSTEM_POLICY_IDENTITY
             system_findings.append(audit_finding)
 
-    if windows_policy_expected and not windows_policy_rows:
-        system_findings.append(
-            missing_log_source_but_other_data_exists(
-                source="correlation",
-                reason="Windows policy data was expected but not supplied for scoring.",
-                identity=SYSTEM_POLICY_IDENTITY,
-            )
-        )
-
-    if expected_ssh_policy and not linux_policy:
-        system_findings.append(
-            missing_log_source_but_other_data_exists(
-                source="correlation",
-                reason="Linux SSH policy data was expected but not supplied for scoring.",
-                identity=SYSTEM_POLICY_IDENTITY,
-            )
-        )
-
     if all_events:
         ip_finding = multiple_failed_logins_from_same_ip(all_events, source="events")
         if ip_finding:
@@ -228,7 +209,7 @@ def detect_anomalies(
         # that standing privilege only becomes a finding when it is not expected.
         if "local_admin" in privileges and not bool(record.get("windows_admin_approved", False)):
             finding = unauthorized_windows_admin(
-                {"username": username, "is_local_admin": True},
+                {"username": username, "is_local_admin": True, "enabled": record.get("status") != "disabled"},
                 approved_admins=approved_windows,
                 source="windows_identity.csv",
             )

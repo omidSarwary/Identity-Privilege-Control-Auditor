@@ -62,3 +62,6 @@ def test_choose_platform_clamps_collection_window_values() -> None:
 
     assert selection.log_hours == 720
     assert selection.max_events == 10000
+    assert "Input exceeded safety limits." in selection.messages
+    assert "Using maximum allowed linux log hours: 720." in selection.messages
+    assert "Using maximum allowed linux max events/lines: 10000." in selection.messages

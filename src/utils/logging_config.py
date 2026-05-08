@@ -7,12 +7,19 @@ from pathlib import Path
 import sys
 from datetime import datetime, timezone
 
-from src.core.paths import LOGS_ARCHIVE_DIR, LOGS_DIR
+from src.core.paths import DATA_ALERTS_DIR, DATA_COLLECTED_DIR, LOGS_ARCHIVE_DIR, LOGS_DIR, REPORTS_DIR
 
 
 LOG_FILE_NAME = "python_engine.log"
 LOG_FILE_PATH = LOGS_DIR / LOG_FILE_NAME
 MAX_LOG_BYTES = 1_048_576
+RUNTIME_PERMISSION_HINT = (
+    "Fix ownership with: sudo chown -R $USER:$USER logs reports data/alerts data/collected"
+)
+
+
+class RuntimeLoggingError(RuntimeError):
+    """Raised when the application cannot write its runtime log file."""
 
 
 class RunContextFilter(logging.Filter):
@@ -73,6 +80,38 @@ def _rotate_existing_log_if_needed(log_file_path: Path) -> None:
     log_file_path.replace(archived_path)
 
 
+def verify_runtime_paths_writable(log_file_path: Path = LOG_FILE_PATH) -> None:
+    """Verify that runtime output paths are writable before full logging starts.
+
+    This function is intentionally small and dependency-free because it may run
+    before the logging system is configured. It catches the common Linux case
+    where a previous sudo run left root-owned runtime files behind.
+    """
+    try:
+        for directory in (LOGS_DIR, REPORTS_DIR, DATA_ALERTS_DIR, DATA_COLLECTED_DIR):
+            directory.mkdir(parents=True, exist_ok=True)
+            probe = directory / ".write_test"
+            with probe.open("w", encoding="utf-8"):
+                pass
+            probe.unlink(missing_ok=True)
+        log_file_path.parent.mkdir(parents=True, exist_ok=True)
+        with log_file_path.open("a", encoding="utf-8"):
+            pass
+    except PermissionError as exc:
+        raise RuntimeLoggingError(
+            f"Cannot write to {log_file_path} because it is not writable by the current user. "
+            "This can happen after running the app with sudo. "
+            f"{RUNTIME_PERMISSION_HINT}. Or run the app with sudo if collection requires elevated privileges."
+        ) from exc
+    except OSError as exc:
+        raise RuntimeLoggingError(f"Cannot prepare runtime log file {log_file_path}: {exc}") from exc
+
+
+def verify_logging_path_writable(log_file_path: Path = LOG_FILE_PATH) -> None:
+    """Backward-compatible wrapper for runtime path permission checks."""
+    verify_runtime_paths_writable(log_file_path)
+
+
 def _prepare_handlers(run_id: str, debug: bool) -> list[logging.Handler]:
     """Build the file and console handlers used by the application.
 
@@ -127,6 +166,8 @@ def setup_logging(run_id: str, debug: bool = False) -> logging.Logger:
     duplicate messages or inherit unrelated logging configuration from the
     environment.
     """
+    verify_runtime_paths_writable()
+
     root_logger = logging.getLogger()
     root_logger.handlers.clear()
     root_logger.setLevel(logging.DEBUG)

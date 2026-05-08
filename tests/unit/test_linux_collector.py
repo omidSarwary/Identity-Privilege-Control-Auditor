@@ -200,4 +200,5 @@ def test_collect_linux_data_rejects_stale_outputs_when_command_is_missing(monkey
     assert result["missing_outputs"] == []
     assert sorted(result["stale_outputs"]) == sorted([str(identity_path), str(policy_path)])
     assert result["current_outputs"] == []
-    assert result["reason"] == "command unavailable"
+    assert "command was unavailable" in result["reason"]
+    assert "logs/linux_audit.log" in result["reason"]

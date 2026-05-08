@@ -190,6 +190,7 @@ def test_windows_scope_without_manual_linux_marks_linux_sources_not_selected(tmp
 
     assert inputs["linux_identity"] == {}
     assert inputs["data_sources"]["linux_identity"]["not_selected"] is True
+    assert inputs["data_sources"]["linux_identity"]["state"] == "not_selected"
     assert inputs["data_sources"]["linux_identity"]["valid"] is True
     assert not any("linux_identity" in error for error in inputs["data_quality"]["errors"])
 
@@ -251,3 +252,73 @@ def test_partial_manual_linux_auth_log_does_not_create_policy_source_gap_finding
     finding_text = "\n".join(finding.get("reason", "") for finding in result["findings"])
     assert "Linux SSH policy data was expected but not supplied" not in finding_text
     assert any("Manual Linux evidence is partial" in warning for warning in result["data_quality"]["warnings"])
+
+
+def test_manual_linux_missing_structured_files_are_optional_warnings(tmp_path) -> None:
+    """Requested manual Linux evidence may be partial without hard errors."""
+    collected = tmp_path / "data" / "collected"
+    incoming = tmp_path / "data" / "incoming"
+    logdata_linux = tmp_path / "logdata" / "linux"
+    collected.mkdir(parents=True)
+    incoming.mkdir(parents=True)
+    logdata_linux.mkdir(parents=True)
+    (logdata_linux / "auth.log").write_text("May 08 host sshd: Failed password for test from 192.0.2.1\n", encoding="utf-8")
+    windows_sources = _write_minimal_windows_sources(collected)
+
+    paths = _data_paths(tmp_path, collected=collected, incoming=incoming)
+    paths.update({name: str(path) for name, path in windows_sources.items()})
+    paths["selected_platform"] = "windows"
+    paths["manual_cross_evidence_included"] = True
+    paths["manual_cross_evidence_platform"] = "linux"
+
+    inputs = load_analysis_inputs("production", paths)
+
+    assert inputs["data_sources"]["linux_identity"]["state"] == "missing_optional"
+    assert inputs["data_sources"]["linux_policy"]["state"] == "missing_optional"
+    assert not any("linux_identity" in error or "linux_policy" in error for error in inputs["data_quality"]["errors"])
+
+
+def test_windows_event_alias_security_events_is_loaded_when_schema_matches(tmp_path) -> None:
+    """Manual security_events.csv should load when it matches the canonical schema."""
+    collected = tmp_path / "data" / "collected"
+    incoming = tmp_path / "data" / "incoming"
+    collected.mkdir(parents=True)
+    incoming.mkdir(parents=True)
+    _write_minimal_windows_sources(collected)
+    (collected / "windows_events.csv").unlink()
+    (incoming / "security_events.csv").write_text(
+        "ComputerName,TimeCreated,EventId,TargetUserName,IpAddress,EventType\n"
+        "WIN-PROD-01,2026-05-08T03:00:00Z,4625,normal_user,192.0.2.5,failed_login\n",
+        encoding="utf-8",
+    )
+
+    paths = _data_paths(tmp_path, collected=collected, incoming=incoming)
+    paths["selected_platform"] = "windows"
+
+    inputs = load_analysis_inputs("production", paths)
+
+    assert inputs["windows_events_rows"][0]["TargetUserName"] == "normal_user"
+    assert inputs["data_sources"]["windows_events"]["loaded"] is True
+
+
+def test_partial_windows_evidence_finding_names_exact_missing_sources(tmp_path) -> None:
+    """Selected-platform gaps should create a precise partial Windows evidence finding."""
+    collected = tmp_path / "data" / "collected"
+    incoming = tmp_path / "data" / "incoming"
+    collected.mkdir(parents=True)
+    incoming.mkdir(parents=True)
+    (collected / "windows_identity.csv").write_text(
+        "ComputerName,CollectionTime,Username,Enabled,IsLocalAdmin,LastLogon,Source\n"
+        "WIN-PROD-01,2026-05-08T03:00:00Z,normal_user,True,False,2026-05-08T02:00:00Z,collector\n",
+        encoding="utf-8",
+    )
+
+    paths = _data_paths(tmp_path, collected=collected, incoming=incoming)
+    paths["selected_platform"] = "windows"
+
+    result = run_identity_risk_engine("production", paths, run_id="20260508-050000")
+
+    partial = next(finding for finding in result["findings"] if finding["finding"] == "Partial Windows evidence")
+    assert "windows_identity was available" in partial["reason"]
+    assert "windows_events" in partial["reason"]
+    assert "windows_policy" in partial["reason"]

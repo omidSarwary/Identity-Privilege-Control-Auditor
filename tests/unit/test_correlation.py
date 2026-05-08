@@ -343,6 +343,39 @@ def test_ssh_root_login_with_no_privileged_activity_does_not_claim_activity() ->
     assert not any("privileged activity observed" in finding["finding"].lower() for finding in findings)
 
 
+def test_windows_old_admin_last_logon_triggers_inactive_privileged_finding() -> None:
+    """Old Windows LastLogon evidence should drive privileged inactivity findings."""
+    rows = [{"Username": "old_admin", "Enabled": "True", "IsLocalAdmin": "True", "LastLogon": "2025-01-01T00:00:00Z"}]
+    records = normalize_identities({}, rows)
+    records = correlate_identity_privileges(records, approved_windows_admins=[{"username": "old_admin"}])
+
+    findings = detect_anomalies(records, approved_windows_admins=[{"username": "old_admin"}])
+
+    assert any(finding["identity"] == "old_admin" and finding["finding"] == "Inactive account with privileges" for finding in findings)
+
+
+def test_windows_recent_admin_last_logon_does_not_trigger_inactivity() -> None:
+    """Recent Windows LastLogon evidence must not be marked inactive."""
+    rows = [{"Username": "recent_admin", "Enabled": "True", "IsLocalAdmin": "True", "LastLogon": "2026-05-08T09:00:00Z"}]
+    records = normalize_identities({}, rows)
+    records = correlate_identity_privileges(records, approved_windows_admins=[{"username": "recent_admin"}])
+
+    findings = detect_anomalies(records, approved_windows_admins=[{"username": "recent_admin"}])
+
+    assert not any(finding["identity"] == "recent_admin" and finding["finding"] == "Inactive account with privileges" for finding in findings)
+
+
+def test_windows_missing_last_logon_does_not_infer_inactivity() -> None:
+    """Missing LastLogon is unknown evidence, not proof of inactivity."""
+    rows = [{"Username": "unknown_admin", "Enabled": "True", "IsLocalAdmin": "True", "LastLogon": ""}]
+    records = normalize_identities({}, rows)
+    records = correlate_identity_privileges(records, approved_windows_admins=[{"username": "unknown_admin"}])
+
+    findings = detect_anomalies(records, approved_windows_admins=[{"username": "unknown_admin"}])
+
+    assert not any(finding["identity"] == "unknown_admin" and finding["finding"] == "Inactive account with privileges" for finding in findings)
+
+
 def test_windows_firewall_disabled_is_system_level_only() -> None:
     """Windows Firewall findings should be emitted once for the whole run.
 

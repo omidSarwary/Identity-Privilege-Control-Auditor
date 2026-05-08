@@ -11,6 +11,7 @@ from __future__ import annotations
 import argparse
 from datetime import datetime, timezone
 from pathlib import Path
+import platform as host_platform
 import time
 from typing import Callable, Sequence
 
@@ -38,7 +39,7 @@ from src.utils.console import (
     print_lines,
     print_message,
 )
-from src.utils.logging_config import get_component_logger, setup_logging
+from src.utils.logging_config import RuntimeLoggingError, get_component_logger, setup_logging, verify_logging_path_writable
 from src.utils.safe_exit import safe_exit
 
 
@@ -163,9 +164,13 @@ def _manual_evidence_candidates(platform: str) -> dict[str, Path]:
         return {
             "windows_identity": DATA_INCOMING_DIR / "windows_identity.csv",
             "windows_events": DATA_INCOMING_DIR / "windows_events.csv",
+            "windows_security_events": DATA_INCOMING_DIR / "security_events.csv",
+            "windows_eventviewer_export": DATA_INCOMING_DIR / "eventviewer_export.csv",
             "windows_policy": DATA_INCOMING_DIR / "windows_policy.csv",
             "windows_identity_logdata": LOGDATA_DIR / "windows" / "windows_identity.csv",
             "windows_events_logdata": LOGDATA_DIR / "windows" / "windows_events.csv",
+            "windows_security_events_logdata": LOGDATA_DIR / "windows" / "security_events.csv",
+            "windows_eventviewer_export_logdata": LOGDATA_DIR / "windows" / "eventviewer_export.csv",
             "windows_policy_logdata": LOGDATA_DIR / "windows" / "windows_policy.csv",
         }
     return {}
@@ -185,9 +190,11 @@ def _scan_manual_evidence(platform: str, reference_time: float) -> dict[str, obj
 
     ``reference_time`` is the moment before the user was asked to place files,
     or the application start time for direct CLI runs. Files older than that
-    time are still allowed, but they are reported as potentially stale so the
-    user understands what evidence is being analyzed.
+    time are still allowed, but only older files are reported as potentially
+    stale. Recently modified files are shown as already present so users can
+    verify they are the intended exports without overstating the risk.
     """
+    recent_threshold_seconds = 600
     found_files: list[dict[str, object]] = []
     warnings: list[str] = []
     candidates = _manual_evidence_candidates(platform)
@@ -196,17 +203,24 @@ def _scan_manual_evidence(platform: str, reference_time: float) -> dict[str, obj
             continue
         modified_time = path.stat().st_mtime
         existed_before_prompt = modified_time < reference_time
+        recently_modified = modified_time >= reference_time - recent_threshold_seconds
         file_info = {
             "source_name": source_name,
             "path": str(path),
             "modified_time": modified_time,
             "existed_before_prompt": existed_before_prompt,
+            "recently_modified": recently_modified,
         }
         found_files.append(file_info)
         if existed_before_prompt:
-            warnings.append(
-                f"Manual {platform.title()} evidence file existed before this run and may be stale: {path}"
-            )
+            if recently_modified:
+                warnings.append(
+                    f"Manual {platform.title()} evidence file was already present when scanned. Verify it is the intended file: {path}"
+                )
+            else:
+                warnings.append(
+                    f"Manual {platform.title()} evidence file appears older than this run and may be stale: {path}"
+                )
 
     found_names = {Path(str(item["path"])).name for item in found_files}
     missing_expected = [name for name in _manual_evidence_expected_labels(platform) if name not in found_names]
@@ -239,7 +253,10 @@ def _manual_evidence_scan_lines(scan_result: dict[str, object]) -> list[str]:
             continue
         lines.append(f"- Found: {item.get('path')}")
         if item.get("existed_before_prompt"):
-            lines.append("- Note: file existed before this prompt and may be from an earlier run.")
+            if item.get("recently_modified"):
+                lines.append("- Note: file was already present when scanned. Verify it is the intended file.")
+            else:
+                lines.append("- Note: file appears older than this run and may be stale.")
     return lines
 
 
@@ -355,6 +372,25 @@ def _attach_scope_to_data_paths(data_paths: dict[str, object], scope: dict[str, 
     updated_paths["manual_cross_evidence_files"] = list(scope.get("manual_cross_evidence_files", []) or [])
     updated_paths["manual_cross_evidence_warnings"] = list(scope.get("manual_cross_evidence_warnings", []) or [])
     updated_paths["analysis_scope"] = str(scope["analysis_scope"])
+    source_labels = dict(updated_paths.get("source_labels", {}) or {})
+    if scope.get("manual_cross_evidence_included"):
+        for item in scope.get("manual_cross_evidence_files", []) or []:
+            if not isinstance(item, dict):
+                continue
+            source_name = str(item.get("source_name") or "")
+            if source_name in {"auth_log", "auth_log_incoming"}:
+                source_labels["linux_auth_log"] = "manual"
+                updated_paths["auth.log"] = str(item.get("path"))
+            elif source_name:
+                canonical = source_name
+                if (
+                    source_name.startswith("windows_events")
+                    or "security_events" in source_name
+                    or "eventviewer_export" in source_name
+                ):
+                    canonical = "windows_events"
+                source_labels[canonical] = "manual"
+    updated_paths["source_labels"] = source_labels
     return updated_paths
 
 
@@ -398,8 +434,8 @@ def _filter_fallback_result_for_scope(
             continue
         platform = _source_platform(source_name) or "cross-platform"
         warning = (
-            f"{platform.title()} fallback evidence was ignored because {platform} manual evidence "
-            f"was not included for this {selected_platform} run: {used_files[source_name].get('path')}"
+            f"Existing {platform.title()} fallback evidence was ignored. To include it, choose manual "
+            f"{platform.title()} evidence or use --include-manual-{platform}: {used_files[source_name].get('path')}"
         )
         warnings.append(warning)
         used_files.pop(source_name, None)
@@ -409,6 +445,7 @@ def _filter_fallback_result_for_scope(
                 **sources[source_name],
                 "selected": False,
                 "not_selected": True,
+                "source_label": "ignored_out_of_scope",
                 "warnings": [*list(sources[source_name].get("warnings", []) or []), warning],
             }
 
@@ -420,6 +457,60 @@ def _filter_fallback_result_for_scope(
     if filtered["no_data_found"]:
         filtered["fallback_reason"] = "No in-scope fallback data was found in any configured directory."
     return filtered
+
+
+def _host_supports_platform(platform: str) -> tuple[bool, str]:
+    """Return whether the selected platform collector can run on this host."""
+    normalized = platform.strip().lower()
+    host_name = host_platform.system().strip().lower()
+    if normalized == "linux":
+        if host_name == "linux":
+            return True, ""
+        return (
+            False,
+            "Linux mode was selected, but this appears to be a Windows environment. "
+            "The Linux Bash collector cannot run here. Run Linux mode from Linux/WSL, or choose Windows mode.",
+        )
+    if normalized == "windows":
+        if host_name == "windows":
+            return True, ""
+        return (
+            False,
+            "Windows mode was selected, but this appears to be a Linux environment. "
+            "The Windows PowerShell collector cannot run here. Choose Linux mode, or provide manually exported Windows evidence.",
+        )
+    return True, ""
+
+
+def _preflight_failure_result(platform: str, reason: str) -> dict[str, object]:
+    """Build a collector-shaped result for a preflight stop condition."""
+    if platform == "windows":
+        expected = {
+            "windows_identity": "data/collected/windows_identity.csv",
+            "windows_events": "data/collected/windows_events.csv",
+            "windows_policy": "data/collected/windows_policy.csv",
+        }
+    else:
+        expected = {
+            "linux_identity": "data/collected/linux_identity.json",
+            "linux_policy": "data/collected/linux_policy.json",
+        }
+    return {
+        "platform": platform,
+        "mode": "production",
+        "command": None,
+        "expected_outputs": expected,
+        "missing_outputs": list(expected.values()),
+        "stale_outputs": [],
+        "current_outputs": [],
+        "success": False,
+        "reason": reason,
+        "preflight_failed": True,
+        "output_statuses": {
+            name: {"status": "not collected", "reason": reason, "path": path}
+            for name, path in expected.items()
+        },
+    }
 
 
 def _run_platform_collectors(platform_selection: object) -> list[dict[str, object]]:
@@ -434,6 +525,9 @@ def _run_platform_collectors(platform_selection: object) -> list[dict[str, objec
 
     if platform == "test":
         return []
+    supported, reason = _host_supports_platform(platform)
+    if not supported:
+        return [_preflight_failure_result(platform, reason)]
     if platform == "linux":
         return [
             collect_linux_data(
@@ -474,6 +568,7 @@ def _collector_results_to_used_files(collector_results: list[dict[str, object]])
                 "path": str(path_obj),
                 "source_directory": str(path_obj.parent),
                 "valid": True,
+                "source_label": "collector",
             }
     return used_files
 
@@ -490,6 +585,7 @@ def _apply_collector_output_paths(
     fresh collector evidence was used.
     """
     updated_paths = dict(data_paths)
+    source_labels = dict(updated_paths.get("source_labels", {}) or {})
     for result in collector_results:
         if not result.get("success"):
             continue
@@ -498,6 +594,10 @@ def _apply_collector_output_paths(
             continue
         for source_name, path in expected_outputs.items():
             updated_paths[str(source_name)] = str(path)
+            source_labels[str(source_name)] = "collector"
+            if str(source_name) == "linux_identity":
+                source_labels["linux_auth_events"] = "collector"
+    updated_paths["source_labels"] = source_labels
     return updated_paths
 
 
@@ -529,10 +629,16 @@ def _apply_fallback_output_paths(
     """
     updated_paths = dict(data_paths)
     used_files = fallback_result.get("used_files", {})
+    source_labels = dict(updated_paths.get("source_labels", {}) or {})
     if isinstance(used_files, dict):
         for source_name, info in used_files.items():
             if isinstance(info, dict) and info.get("path"):
-                updated_paths[str(source_name)] = str(info["path"])
+                canonical_name = "linux_auth_log" if str(source_name) == "auth_log" else str(source_name)
+                updated_paths[canonical_name] = str(info["path"])
+                if str(source_name) == "auth_log":
+                    updated_paths["auth.log"] = str(info["path"])
+                source_labels[canonical_name] = "fallback" if fallback_result.get("fallback_activated") else "collector"
+    updated_paths["source_labels"] = source_labels
 
     if excluded_paths:
         existing = updated_paths.get("excluded_paths", [])
@@ -722,7 +828,6 @@ def _fallback_file_lines(fallback_result: dict[str, object]) -> list[str]:
             "Fallback found no usable evidence files.",
             f"Search order: {searched_text}",
             f"Missing files: {missing_text}",
-            "No valid evidence files were found. Place exported logs in data/incoming/ or logdata/linux/ or logdata/windows/ and run again.",
         ]
 
     used_files = fallback_result.get("used_files", {})
@@ -760,7 +865,7 @@ def _data_quality_warning_lines(analysis_result: dict[str, object]) -> list[str]
     if not isinstance(data_quality, dict):
         return []
     warnings = [str(warning) for warning in data_quality.get("warnings", []) or []]
-    return [f"Warning: {warning}" for warning in warnings if "ignored" in warning.lower()]
+    return [f"Warning: {warning}" for warning in dict.fromkeys(warnings) if "ignored" in warning.lower()]
 
 
 def _collector_reason(collector_result: dict[str, object]) -> str:
@@ -840,7 +945,7 @@ def _attach_report_metadata(
     if fallback_warnings or manual_warnings:
         data_quality = dict(report_result.get("data_quality", {}) or {})
         existing_warnings = list(data_quality.get("warnings", []) or [])
-        data_quality["warnings"] = [*existing_warnings, *fallback_warnings, *manual_warnings]
+        data_quality["warnings"] = list(dict.fromkeys([*existing_warnings, *fallback_warnings, *manual_warnings]))
         report_result["data_quality"] = data_quality
     return report_result
 
@@ -856,7 +961,12 @@ def main(argv: Sequence[str] | None = None, input_func: Callable[[str], str] = i
     args = parse_args(argv)
     run_id = create_run_id()
     run_started_at = time.time()
-    setup_logging(run_id=run_id, debug=False)
+    try:
+        verify_logging_path_writable()
+        setup_logging(run_id=run_id, debug=False)
+    except RuntimeLoggingError as exc:
+        print(str(exc))
+        return 1
     logger = get_component_logger("app", run_id)
 
     try:
@@ -879,6 +989,8 @@ def main(argv: Sequence[str] | None = None, input_func: Callable[[str], str] = i
             linux_log_hours=args.linux_log_hours,
             linux_max_events=args.linux_max_events,
         )
+        if getattr(platform_selection, "messages", ()):
+            print_lines(list(platform_selection.messages))
         print_message(platform_selection.instructions)
         print_message(build_privilege_notice(platform_selection.platform, test_mode=platform_selection.use_mockdata))
         print_message(f"Selected platform: {platform_selection.platform}")

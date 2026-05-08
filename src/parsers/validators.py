@@ -91,7 +91,7 @@ def validate_linux_policy(data: dict[str, Any]) -> ValidationStatus:
     if status.valid and isinstance(policy, dict):
         ssh_policy = policy.get("ssh_policy")
         if not isinstance(ssh_policy, dict):
-            status.add_error("linux_policy: missing ssh_policy mapping")
+            status.add_error("linux_policy.json was found but did not contain the expected policy.ssh_policy mapping.")
         else:
             for key in ["permit_root_login", "password_authentication", "pubkey_authentication"]:
                 if key not in ssh_policy:
