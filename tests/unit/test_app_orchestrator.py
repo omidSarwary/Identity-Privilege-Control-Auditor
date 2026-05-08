@@ -65,6 +65,9 @@ def test_parse_args_supports_orchestrator_flags() -> None:
         "6",
         "--linux-max-events",
         "250",
+        "--include-manual-linux",
+        "--include-manual-windows",
+        "--no-manual-cross-evidence",
     ])
 
     assert args.test is True
@@ -74,6 +77,9 @@ def test_parse_args_supports_orchestrator_flags() -> None:
     assert args.windows_max_events == "500"
     assert args.linux_log_hours == "6"
     assert args.linux_max_events == "250"
+    assert args.include_manual_linux is True
+    assert args.include_manual_windows is True
+    assert args.no_manual_cross_evidence is True
 
 
 def test_main_skips_platform_collectors_in_test_mode(monkeypatch) -> None:
@@ -672,3 +678,335 @@ def test_linux_success_ignores_existing_windows_collected_outputs(monkeypatch, t
     assert str(windows_identity) in captured_data_paths["excluded_paths"]
     assert str(windows_events) in captured_data_paths["excluded_paths"]
     assert str(windows_policy) in captured_data_paths["excluded_paths"]
+
+
+def test_direct_windows_mode_defaults_to_no_manual_linux(monkeypatch) -> None:
+    """Direct CLI Windows runs should not include manual Linux evidence by default."""
+    captured_data_paths: dict[str, object] = {}
+    captured_report: dict[str, object] = {}
+
+    monkeypatch.setattr(app, "load_app_config", lambda: {"project_name": "NordSec", "version": "0.2.0", "default_mode": "windows"})
+    monkeypatch.setattr(app, "bootstrap_project", lambda perform_full_checks=True: _bootstrap_status())
+    monkeypatch.setattr(
+        app,
+        "collect_windows_data",
+        lambda mode, **kwargs: {
+            "platform": "windows",
+            "mode": mode,
+            "success": True,
+            "missing_outputs": [],
+            "expected_outputs": {"windows_identity": "data/collected/windows_identity.csv"},
+            "command": {"returncode": 0},
+        },
+    )
+    monkeypatch.setattr(app, "collect_linux_data", lambda mode, **kwargs: (_ for _ in ()).throw(AssertionError("linux collector should not run")))
+    monkeypatch.setattr(app, "collect_fallback_data", lambda mode, **kwargs: (_ for _ in ()).throw(AssertionError("fallback should not run")))
+
+    def _run_identity_risk_engine(mode, data_paths, run_id):
+        captured_data_paths.update(data_paths)
+        return _mock_analysis_result(run_id, mode)
+
+    def _write_reports(analysis_result):
+        captured_report.update(analysis_result)
+        return _mock_report_paths()
+
+    monkeypatch.setattr(app, "run_identity_risk_engine", _run_identity_risk_engine)
+    monkeypatch.setattr(app, "write_reports", _write_reports)
+    monkeypatch.setattr(app, "print_message", lambda message: None)
+
+    exit_code = app.main(["--mode", "windows", "--no-bootstrap"], input_func=lambda _: "unused")
+
+    assert exit_code == 0
+    assert captured_data_paths["manual_cross_evidence_included"] is False
+    assert captured_data_paths["manual_cross_evidence_platform"] == "none"
+    assert captured_report["analysis_scope"] == "Windows collector data only"
+
+
+def test_direct_linux_mode_defaults_to_no_manual_windows(monkeypatch) -> None:
+    """Direct CLI Linux runs should not include manual Windows evidence by default."""
+    captured_data_paths: dict[str, object] = {}
+
+    monkeypatch.setattr(app, "load_app_config", lambda: {"project_name": "NordSec", "version": "0.2.0", "default_mode": "linux"})
+    monkeypatch.setattr(app, "bootstrap_project", lambda perform_full_checks=True: _bootstrap_status())
+    monkeypatch.setattr(
+        app,
+        "collect_linux_data",
+        lambda mode, **kwargs: {
+            "platform": "linux",
+            "mode": mode,
+            "success": True,
+            "missing_outputs": [],
+            "expected_outputs": {"linux_identity": "data/collected/linux_identity.json"},
+            "command": {"returncode": 0},
+        },
+    )
+    monkeypatch.setattr(app, "collect_windows_data", lambda mode, **kwargs: (_ for _ in ()).throw(AssertionError("windows collector should not run")))
+    monkeypatch.setattr(app, "collect_fallback_data", lambda mode, **kwargs: (_ for _ in ()).throw(AssertionError("fallback should not run")))
+
+    def _run_identity_risk_engine(mode, data_paths, run_id):
+        captured_data_paths.update(data_paths)
+        return _mock_analysis_result(run_id, mode)
+
+    monkeypatch.setattr(app, "run_identity_risk_engine", _run_identity_risk_engine)
+    monkeypatch.setattr(app, "write_reports", lambda analysis_result: _mock_report_paths())
+    monkeypatch.setattr(app, "print_message", lambda message: None)
+
+    exit_code = app.main(["--mode", "linux", "--no-bootstrap"], input_func=lambda _: "unused")
+
+    assert exit_code == 0
+    assert captured_data_paths["manual_cross_evidence_included"] is False
+    assert captured_data_paths["manual_cross_evidence_platform"] == "none"
+    assert captured_data_paths["analysis_scope"] == "Linux collector data only"
+
+
+def test_direct_windows_mode_can_include_manual_linux(monkeypatch) -> None:
+    """The manual Linux flag should include Linux evidence in Windows scope."""
+    captured_data_paths: dict[str, object] = {}
+
+    monkeypatch.setattr(app, "load_app_config", lambda: {"project_name": "NordSec", "version": "0.2.0", "default_mode": "windows"})
+    monkeypatch.setattr(app, "bootstrap_project", lambda perform_full_checks=True: _bootstrap_status())
+    monkeypatch.setattr(
+        app,
+        "collect_windows_data",
+        lambda mode, **kwargs: {
+            "platform": "windows",
+            "mode": mode,
+            "success": True,
+            "missing_outputs": [],
+            "expected_outputs": {"windows_identity": "data/collected/windows_identity.csv"},
+            "command": {"returncode": 0},
+        },
+    )
+    monkeypatch.setattr(app, "collect_linux_data", lambda mode, **kwargs: (_ for _ in ()).throw(AssertionError("linux collector should not run")))
+    monkeypatch.setattr(app, "collect_fallback_data", lambda mode, **kwargs: (_ for _ in ()).throw(AssertionError("fallback should not run")))
+
+    def _run_identity_risk_engine(mode, data_paths, run_id):
+        captured_data_paths.update(data_paths)
+        return _mock_analysis_result(run_id, mode)
+
+    monkeypatch.setattr(app, "run_identity_risk_engine", _run_identity_risk_engine)
+    monkeypatch.setattr(app, "write_reports", lambda analysis_result: _mock_report_paths())
+    monkeypatch.setattr(app, "print_message", lambda message: None)
+
+    exit_code = app.main(["--mode", "windows", "--include-manual-linux", "--no-bootstrap"], input_func=lambda _: "unused")
+
+    assert exit_code == 0
+    assert captured_data_paths["manual_cross_evidence_included"] is True
+    assert captured_data_paths["manual_cross_evidence_platform"] == "linux"
+    assert captured_data_paths["analysis_scope"] == "Windows collector data + manual Linux evidence"
+
+
+def test_direct_linux_mode_can_include_manual_windows(monkeypatch) -> None:
+    """The manual Windows flag should include Windows evidence in Linux scope."""
+    captured_data_paths: dict[str, object] = {}
+
+    monkeypatch.setattr(app, "load_app_config", lambda: {"project_name": "NordSec", "version": "0.2.0", "default_mode": "linux"})
+    monkeypatch.setattr(app, "bootstrap_project", lambda perform_full_checks=True: _bootstrap_status())
+    monkeypatch.setattr(
+        app,
+        "collect_linux_data",
+        lambda mode, **kwargs: {
+            "platform": "linux",
+            "mode": mode,
+            "success": True,
+            "missing_outputs": [],
+            "expected_outputs": {"linux_identity": "data/collected/linux_identity.json"},
+            "command": {"returncode": 0},
+        },
+    )
+    monkeypatch.setattr(app, "collect_windows_data", lambda mode, **kwargs: (_ for _ in ()).throw(AssertionError("windows collector should not run")))
+    monkeypatch.setattr(app, "collect_fallback_data", lambda mode, **kwargs: (_ for _ in ()).throw(AssertionError("fallback should not run")))
+
+    def _run_identity_risk_engine(mode, data_paths, run_id):
+        captured_data_paths.update(data_paths)
+        return _mock_analysis_result(run_id, mode)
+
+    monkeypatch.setattr(app, "run_identity_risk_engine", _run_identity_risk_engine)
+    monkeypatch.setattr(app, "write_reports", lambda analysis_result: _mock_report_paths())
+    monkeypatch.setattr(app, "print_message", lambda message: None)
+
+    exit_code = app.main(["--mode", "linux", "--include-manual-windows", "--no-bootstrap"], input_func=lambda _: "unused")
+
+    assert exit_code == 0
+    assert captured_data_paths["manual_cross_evidence_included"] is True
+    assert captured_data_paths["manual_cross_evidence_platform"] == "windows"
+    assert captured_data_paths["analysis_scope"] == "Linux collector data + manual Windows evidence"
+
+
+def test_interactive_windows_no_manual_linux_keeps_windows_only_scope(monkeypatch) -> None:
+    """Interactive Windows users can explicitly decline manual Linux evidence."""
+    captured_data_paths: dict[str, object] = {}
+    responses = iter(["windows", "1", "100", "n"])
+
+    monkeypatch.setattr(app, "load_app_config", lambda: {"project_name": "NordSec", "version": "0.2.0", "default_mode": "windows"})
+    monkeypatch.setattr(app, "bootstrap_project", lambda perform_full_checks=True: _bootstrap_status())
+    monkeypatch.setattr(
+        app,
+        "collect_windows_data",
+        lambda mode, **kwargs: {
+            "platform": "windows",
+            "mode": mode,
+            "success": True,
+            "missing_outputs": [],
+            "expected_outputs": {"windows_identity": "data/collected/windows_identity.csv"},
+            "command": {"returncode": 0},
+        },
+    )
+    monkeypatch.setattr(app, "collect_linux_data", lambda mode, **kwargs: (_ for _ in ()).throw(AssertionError("linux collector should not run")))
+    monkeypatch.setattr(app, "collect_fallback_data", lambda mode, **kwargs: (_ for _ in ()).throw(AssertionError("fallback should not run")))
+
+    def _run_identity_risk_engine(mode, data_paths, run_id):
+        captured_data_paths.update(data_paths)
+        return _mock_analysis_result(run_id, mode)
+
+    monkeypatch.setattr(app, "run_identity_risk_engine", _run_identity_risk_engine)
+    monkeypatch.setattr(app, "write_reports", lambda analysis_result: _mock_report_paths())
+    monkeypatch.setattr(app, "print_message", lambda message: None)
+
+    exit_code = app.main(["--no-bootstrap"], input_func=lambda _: next(responses))
+
+    assert exit_code == 0
+    assert captured_data_paths["manual_cross_evidence_included"] is False
+    assert captured_data_paths["analysis_scope"] == "Windows collector data only"
+
+
+def test_interactive_linux_no_manual_windows_keeps_linux_only_scope(monkeypatch) -> None:
+    """Interactive Linux users can explicitly decline manual Windows evidence."""
+    captured_data_paths: dict[str, object] = {}
+    responses = iter(["linux", "1", "100", "n"])
+
+    monkeypatch.setattr(app, "load_app_config", lambda: {"project_name": "NordSec", "version": "0.2.0", "default_mode": "linux"})
+    monkeypatch.setattr(app, "bootstrap_project", lambda perform_full_checks=True: _bootstrap_status())
+    monkeypatch.setattr(
+        app,
+        "collect_linux_data",
+        lambda mode, **kwargs: {
+            "platform": "linux",
+            "mode": mode,
+            "success": True,
+            "missing_outputs": [],
+            "expected_outputs": {"linux_identity": "data/collected/linux_identity.json"},
+            "command": {"returncode": 0},
+        },
+    )
+    monkeypatch.setattr(app, "collect_windows_data", lambda mode, **kwargs: (_ for _ in ()).throw(AssertionError("windows collector should not run")))
+    monkeypatch.setattr(app, "collect_fallback_data", lambda mode, **kwargs: (_ for _ in ()).throw(AssertionError("fallback should not run")))
+
+    def _run_identity_risk_engine(mode, data_paths, run_id):
+        captured_data_paths.update(data_paths)
+        return _mock_analysis_result(run_id, mode)
+
+    monkeypatch.setattr(app, "run_identity_risk_engine", _run_identity_risk_engine)
+    monkeypatch.setattr(app, "write_reports", lambda analysis_result: _mock_report_paths())
+    monkeypatch.setattr(app, "print_message", lambda message: None)
+
+    exit_code = app.main(["--no-bootstrap"], input_func=lambda _: next(responses))
+
+    assert exit_code == 0
+    assert captured_data_paths["manual_cross_evidence_included"] is False
+    assert captured_data_paths["analysis_scope"] == "Linux collector data only"
+
+
+def test_windows_fallback_ignores_linux_when_manual_linux_not_included(monkeypatch) -> None:
+    """Fallback should not keep Linux-only files for a Windows-only run."""
+    monkeypatch.setattr(app, "load_app_config", lambda: {"project_name": "NordSec", "version": "0.2.0", "default_mode": "windows"})
+    monkeypatch.setattr(app, "bootstrap_project", lambda perform_full_checks=True: _bootstrap_status())
+    monkeypatch.setattr(
+        app,
+        "collect_windows_data",
+        lambda mode, **kwargs: {
+            "platform": "windows",
+            "mode": mode,
+            "success": False,
+            "missing_outputs": ["data/collected/windows_identity.csv"],
+            "expected_outputs": {"windows_identity": "data/collected/windows_identity.csv"},
+            "command": {"returncode": 1},
+            "reason": "collector exited with code 1",
+        },
+    )
+    monkeypatch.setattr(app, "collect_linux_data", lambda mode, **kwargs: (_ for _ in ()).throw(AssertionError("linux collector should not run")))
+    monkeypatch.setattr(
+        app,
+        "collect_fallback_data",
+        lambda mode, **kwargs: {
+            "mode": mode,
+            "fallback_activated": True,
+            "fallback_reason": "Primary collector output was incomplete.",
+            "used_files": {"linux_identity": {"path": "data/incoming/linux_identity.json"}},
+            "missing_files": [],
+            "no_data_found": False,
+            "searched_directories": ["data/incoming"],
+            "warnings": [],
+            "sources": {"linux_identity": {"selected": True, "warnings": []}},
+            "payloads": {"linux_identity": {}},
+        },
+    )
+    monkeypatch.setattr(app, "run_identity_risk_engine", lambda *args, **kwargs: (_ for _ in ()).throw(AssertionError("analysis should not run without in-scope evidence")))
+    monkeypatch.setattr(app, "write_reports", lambda *args, **kwargs: (_ for _ in ()).throw(AssertionError("reports should not be written")))
+    monkeypatch.setattr(app, "print_message", lambda message: None)
+
+    exit_code = app.main(["--mode", "windows", "--no-bootstrap"], input_func=lambda _: "unused")
+
+    assert exit_code == 1
+
+
+def test_windows_manual_linux_fallback_ignores_automatic_collected_linux(monkeypatch, tmp_path) -> None:
+    """Manual Linux inclusion should not treat old data/collected Linux files as manual evidence."""
+    captured_ignored: list[str] = []
+    captured_data_paths: dict[str, object] = {}
+    collected_dir = tmp_path / "data" / "collected"
+    collected_dir.mkdir(parents=True)
+    linux_identity = collected_dir / "linux_identity.json"
+    linux_policy = collected_dir / "linux_policy.json"
+    linux_identity.write_text("{}", encoding="utf-8")
+    linux_policy.write_text("{}", encoding="utf-8")
+
+    monkeypatch.setattr(app, "DATA_COLLECTED_DIR", collected_dir)
+    monkeypatch.setattr(app, "load_app_config", lambda: {"project_name": "NordSec", "version": "0.2.0", "default_mode": "windows"})
+    monkeypatch.setattr(app, "bootstrap_project", lambda perform_full_checks=True: _bootstrap_status())
+    monkeypatch.setattr(
+        app,
+        "collect_windows_data",
+        lambda mode, **kwargs: {
+            "platform": "windows",
+            "mode": mode,
+            "success": False,
+            "missing_outputs": ["data/collected/windows_events.csv"],
+            "expected_outputs": {"windows_events": "data/collected/windows_events.csv"},
+            "command": {"returncode": 1},
+            "reason": "collector exited with code 1",
+        },
+    )
+    monkeypatch.setattr(app, "collect_linux_data", lambda mode, **kwargs: (_ for _ in ()).throw(AssertionError("linux collector should not run")))
+
+    def _fallback(mode, **kwargs):
+        captured_ignored.extend(kwargs.get("ignored_collected_files", []))
+        return {
+            "mode": mode,
+            "fallback_activated": True,
+            "fallback_reason": "Primary collector output was incomplete.",
+            "used_files": {"windows_identity": {"path": "data/incoming/windows_identity.csv"}},
+            "missing_files": [],
+            "no_data_found": False,
+            "searched_directories": ["data/collected", "data/incoming"],
+            "warnings": [],
+            "sources": {},
+            "payloads": {},
+        }
+
+    def _run_identity_risk_engine(mode, data_paths, run_id):
+        captured_data_paths.update(data_paths)
+        return _mock_analysis_result(run_id, mode)
+
+    monkeypatch.setattr(app, "collect_fallback_data", _fallback)
+    monkeypatch.setattr(app, "run_identity_risk_engine", _run_identity_risk_engine)
+    monkeypatch.setattr(app, "write_reports", lambda analysis_result: _mock_report_paths())
+    monkeypatch.setattr(app, "print_message", lambda message: None)
+
+    exit_code = app.main(["--mode", "windows", "--include-manual-linux", "--no-bootstrap"], input_func=lambda _: "unused")
+
+    assert exit_code == 0
+    assert str(linux_identity) in captured_ignored
+    assert str(linux_policy) in captured_ignored
+    assert str(linux_identity) in captured_data_paths["excluded_paths"]
+    assert str(linux_policy) in captured_data_paths["excluded_paths"]

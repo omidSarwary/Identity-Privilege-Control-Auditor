@@ -38,6 +38,9 @@ def _platform_report_result(selected_platform: str) -> dict[str, object]:
     analysis_result = _report_ready_result(fallback_used=False, fallback_reason="collector output complete")
     analysis_result["mode"] = "test" if selected_platform == "test" else "production"
     analysis_result["selected_platform"] = selected_platform
+    analysis_result["analysis_scope"] = f"{selected_platform.title()} collector data only"
+    analysis_result["manual_cross_evidence_included"] = False
+    analysis_result["manual_cross_evidence_platform"] = "none"
     return analysis_result
 
 
@@ -126,8 +129,12 @@ def test_text_and_json_reports_include_windows_selected_platform(tmp_path) -> No
 
     assert "Mode: production" in text_report
     assert "Platform selected: windows" in text_report
+    assert "Analysis scope: Windows collector data only" in text_report
     assert payload["mode"] == "production"
     assert payload["selected_platform"] == "windows"
+    assert payload["analysis_scope"] == "Windows collector data only"
+    assert payload["manual_cross_evidence_included"] is False
+    assert payload["manual_cross_evidence_platform"] == "none"
 
 
 def test_text_and_json_reports_include_linux_selected_platform(tmp_path) -> None:

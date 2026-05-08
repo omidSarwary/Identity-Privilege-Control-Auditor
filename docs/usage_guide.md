@@ -64,6 +64,8 @@ The chosen platform determines which sensor runs:
 
 - Linux mode uses the Bash sensor
 - Windows mode uses the PowerShell sensor
+- the non-selected operating system is excluded unless manual cross-platform
+  evidence is explicitly enabled
 - production collection may require sudo/root on Linux or Administrator on
   Windows when protected logs or policy files are inspected
 
@@ -74,6 +76,19 @@ need to be scanned in one pass:
 python app.py --mode linux --linux-log-hours 12 --linux-max-events 500
 python app.py --mode windows --windows-log-hours 12 --windows-max-events 500
 ```
+
+Optional manual cross-platform evidence can be enabled explicitly:
+
+```bash
+python app.py --mode windows --include-manual-linux
+python app.py --mode linux --include-manual-windows
+python app.py --mode windows --no-manual-cross-evidence
+```
+
+Without these flags, direct CLI production runs stay single-platform. For
+example, `python app.py --mode windows` analyzes Windows collector data only
+and does not load Linux files from `data/incoming/`, `logdata/linux/`, or old
+Linux collector output in `data/collected/`.
 
 Interactive production mode prompts for the same values and falls back to the
 safe defaults of 24 hours and 1000 events or lines when Enter is pressed.
@@ -97,6 +112,11 @@ logs are needed, export them manually and place them in:
 If older logs are available, exporting them manually into those directories is
 the supported way to widen the evidence window.
 
+Interactive production mode also asks whether manually exported evidence from
+the other operating system should be included. Answering `no` keeps the run
+single-platform. Answering `yes` lets you place the other operating system's
+evidence in the approved manual locations before analysis continues.
+
 ## Fallback and Manual Evidence
 
 If the primary collector does not produce usable output, the fallback collector
@@ -109,6 +129,16 @@ searches approved locations such as:
 The fallback flow is read-only and only uses existing files.
 If fallback cannot find usable evidence, the application exits safely and the
 console explains which directories were searched.
+
+Manual cross-platform evidence is separate from fallback. It is included only
+when explicitly selected and should be placed in:
+
+- `data/incoming/`
+- `logdata/linux/`
+- `logdata/windows/`
+
+Examples include `linux_identity.json`, `linux_policy.json`, `auth.log`,
+`windows_identity.csv`, `windows_events.csv`, and `windows_policy.csv`.
 
 ## Safe Exit
 

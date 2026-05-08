@@ -90,6 +90,21 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
         "--linux-max-events",
         help="Maximum Linux log lines or events to collect.",
     )
+    parser.add_argument(
+        "--include-manual-linux",
+        action="store_true",
+        help="Include manually exported Linux evidence during a Windows production run.",
+    )
+    parser.add_argument(
+        "--include-manual-windows",
+        action="store_true",
+        help="Include manually exported Windows evidence during a Linux production run.",
+    )
+    parser.add_argument(
+        "--no-manual-cross-evidence",
+        action="store_true",
+        help="Do not include evidence from the non-selected operating system.",
+    )
     return parser.parse_args(argv)
 
 
@@ -103,6 +118,174 @@ def _build_data_paths(mode_config: dict[str, object]) -> dict[str, object]:
     data_paths = dict(mode_config.get("paths", {}))
     data_paths["baselines"] = str(BASELINES_DIR)
     return data_paths
+
+
+def _analysis_scope(
+    selected_platform: str,
+    *,
+    manual_cross_evidence_included: bool,
+    manual_cross_evidence_platform: str,
+) -> str:
+    """Describe which evidence families are intentionally in scope."""
+    platform = selected_platform.strip().lower()
+    if platform == "test":
+        return "Test mockdata pipeline"
+    if manual_cross_evidence_included and manual_cross_evidence_platform == "linux":
+        return "Windows collector data + manual Linux evidence"
+    if manual_cross_evidence_included and manual_cross_evidence_platform == "windows":
+        return "Linux collector data + manual Windows evidence"
+    if platform == "windows":
+        return "Windows collector data only"
+    if platform == "linux":
+        return "Linux collector data only"
+    return "Selected platform collector data only"
+
+
+def _resolve_manual_cross_evidence(
+    *,
+    selected_platform: str,
+    args: argparse.Namespace,
+    interactive: bool,
+    input_func: Callable[[str], str],
+) -> dict[str, object]:
+    """Resolve whether opposite-OS manual evidence should be included.
+
+    Direct ``--mode`` runs stay non-interactive and default to a single-platform
+    scope. Fully interactive production runs ask once so the user explicitly
+    chooses whether manual cross-platform evidence should be part of analysis.
+    """
+    platform = selected_platform.strip().lower()
+    if platform == "test" or args.no_manual_cross_evidence:
+        return {
+            "manual_cross_evidence_included": False,
+            "manual_cross_evidence_platform": "none",
+            "analysis_scope": _analysis_scope(
+                platform,
+                manual_cross_evidence_included=False,
+                manual_cross_evidence_platform="none",
+            ),
+        }
+
+    requested_platform = "linux" if platform == "windows" else "windows" if platform == "linux" else "none"
+    cli_included = (
+        (platform == "windows" and bool(args.include_manual_linux))
+        or (platform == "linux" and bool(args.include_manual_windows))
+    )
+    include_manual = cli_included
+
+    if interactive and platform == "windows" and not cli_included:
+        response = input_func("Do you want to include manually exported Linux evidence as well? [y/N]: ").strip().lower()
+        include_manual = response in {"y", "yes"}
+        if include_manual:
+            print_lines(
+                [
+                    "Place Linux evidence in one of these locations before continuing:",
+                    "- data/incoming/",
+                    "- logdata/linux/",
+                    "Examples: auth.log, syslog, journalctl exports, linux_identity.json, linux_policy.json",
+                ]
+            )
+            ready = input_func("Press Enter when the Linux evidence files are ready, or type skip to continue without them: ")
+            include_manual = ready.strip().lower() != "skip"
+    elif interactive and platform == "linux" and not cli_included:
+        response = input_func("Do you want to include manually exported Windows evidence as well? [y/N]: ").strip().lower()
+        include_manual = response in {"y", "yes"}
+        if include_manual:
+            print_lines(
+                [
+                    "Place Windows evidence in one of these locations before continuing:",
+                    "- data/incoming/",
+                    "- logdata/windows/",
+                    "Examples: windows_identity.csv, windows_events.csv, windows_policy.csv, Event Viewer CSV exports",
+                ]
+            )
+            ready = input_func("Press Enter when the Windows evidence files are ready, or type skip to continue without them: ")
+            include_manual = ready.strip().lower() != "skip"
+
+    manual_platform = requested_platform if include_manual else "none"
+    return {
+        "manual_cross_evidence_included": include_manual,
+        "manual_cross_evidence_platform": manual_platform,
+        "analysis_scope": _analysis_scope(
+            platform,
+            manual_cross_evidence_included=include_manual,
+            manual_cross_evidence_platform=manual_platform,
+        ),
+    }
+
+
+def _attach_scope_to_data_paths(data_paths: dict[str, object], scope: dict[str, object], selected_platform: str) -> dict[str, object]:
+    """Attach source-scope metadata consumed by the analysis engine."""
+    updated_paths = dict(data_paths)
+    updated_paths["selected_platform"] = selected_platform
+    updated_paths["manual_cross_evidence_included"] = bool(scope["manual_cross_evidence_included"])
+    updated_paths["manual_cross_evidence_platform"] = str(scope["manual_cross_evidence_platform"])
+    updated_paths["analysis_scope"] = str(scope["analysis_scope"])
+    return updated_paths
+
+
+def _source_platform(source_name: str) -> str | None:
+    """Return the platform family for one logical evidence source."""
+    if source_name.startswith("linux_") or source_name == "auth_log":
+        return "linux"
+    if source_name.startswith("windows_"):
+        return "windows"
+    return None
+
+
+def _source_in_scope(source_name: str, selected_platform: str, scope: dict[str, object]) -> bool:
+    """Return whether a fallback source is intentionally in scope."""
+    if selected_platform == "test":
+        return True
+    platform = _source_platform(source_name)
+    if platform is None or platform == selected_platform:
+        return True
+    return bool(scope.get("manual_cross_evidence_included")) and platform == scope.get("manual_cross_evidence_platform")
+
+
+def _filter_fallback_result_for_scope(
+    fallback_result: dict[str, object],
+    *,
+    selected_platform: str,
+    scope: dict[str, object],
+) -> dict[str, object]:
+    """Remove fallback files from operating systems the user did not select."""
+    if selected_platform == "test":
+        return fallback_result
+
+    filtered = dict(fallback_result)
+    warnings = list(filtered.get("warnings", []) or [])
+    used_files = dict(filtered.get("used_files", {}) or {})
+    payloads = dict(filtered.get("payloads", {}) or {})
+    sources = dict(filtered.get("sources", {}) or {})
+
+    for source_name in list(used_files):
+        if _source_in_scope(source_name, selected_platform, scope):
+            continue
+        platform = _source_platform(source_name) or "cross-platform"
+        warning = (
+            f"{platform.title()} fallback evidence was ignored because {platform} manual evidence "
+            f"was not included for this {selected_platform} run: {used_files[source_name].get('path')}"
+        )
+        warnings.append(warning)
+        used_files.pop(source_name, None)
+        payloads.pop(source_name, None)
+        if isinstance(sources.get(source_name), dict):
+            sources[source_name] = {
+                **sources[source_name],
+                "selected": False,
+                "not_selected": True,
+                "warnings": [*list(sources[source_name].get("warnings", []) or []), warning],
+            }
+
+    filtered["used_files"] = used_files
+    filtered["payloads"] = payloads
+    filtered["sources"] = sources
+    filtered["warnings"] = warnings
+    filtered["no_data_found"] = not bool(used_files)
+    if filtered["no_data_found"]:
+        filtered["fallback_reason"] = "No in-scope fallback data was found in any configured directory."
+    return filtered
 
 
 def _run_platform_collectors(platform_selection: object) -> list[dict[str, object]]:
@@ -499,6 +682,7 @@ def _attach_report_metadata(
     fallback_result: dict[str, object],
     *,
     selected_platform: str,
+    scope: dict[str, object] | None = None,
 ) -> dict[str, object]:
     """Attach report-only metadata to the analysis result.
 
@@ -510,6 +694,10 @@ def _attach_report_metadata(
     report_result["fallback_used"] = bool(fallback_result.get("fallback_activated"))
     report_result["fallback_reason"] = fallback_result.get("fallback_reason")
     report_result["selected_platform"] = selected_platform
+    if scope:
+        report_result["analysis_scope"] = scope.get("analysis_scope")
+        report_result["manual_cross_evidence_included"] = bool(scope.get("manual_cross_evidence_included"))
+        report_result["manual_cross_evidence_platform"] = scope.get("manual_cross_evidence_platform", "none")
     fallback_warnings = [str(warning) for warning in fallback_result.get("warnings", []) or []]
     if fallback_warnings:
         data_quality = dict(report_result.get("data_quality", {}) or {})
@@ -542,6 +730,7 @@ def main(argv: Sequence[str] | None = None, input_func: Callable[[str], str] = i
         print_message(format_banner(project_name, project_version, banner_mode))
 
         requested_platform = "test" if args.test else args.mode
+        interactive_run = requested_platform is None
         platform_selection = choose_platform(
             requested_platform=requested_platform,
             test_flag=args.test,
@@ -555,6 +744,27 @@ def main(argv: Sequence[str] | None = None, input_func: Callable[[str], str] = i
         print_message(build_privilege_notice(platform_selection.platform, test_mode=platform_selection.use_mockdata))
         print_message(f"Selected platform: {platform_selection.platform}")
         logger.info("Selected platform: %s", platform_selection.platform)
+        scope = _resolve_manual_cross_evidence(
+            selected_platform=platform_selection.platform,
+            args=args,
+            interactive=interactive_run and platform_selection.platform != "test",
+            input_func=input_func,
+        )
+        print_message(
+            "Cross-platform manual evidence: "
+            + (
+                f"{scope['manual_cross_evidence_platform'].title()} manual evidence included."
+                if scope["manual_cross_evidence_included"]
+                else "not included."
+            )
+        )
+        print_message(f"Analysis scope: {scope['analysis_scope']}")
+        logger.info(
+            "Analysis scope resolved: %s manual_cross_evidence_included=%s manual_cross_evidence_platform=%s",
+            scope["analysis_scope"],
+            scope["manual_cross_evidence_included"],
+            scope["manual_cross_evidence_platform"],
+        )
         if platform_selection.platform != "test":
             print_message(
                 f"Collection window: {platform_selection.log_hours} hours, max {platform_selection.max_events} events/lines"
@@ -588,6 +798,7 @@ def main(argv: Sequence[str] | None = None, input_func: Callable[[str], str] = i
         mode_config_path = _mode_config_path(platform_selection.analysis_mode)
         mode_config = load_json_file(mode_config_path)
         data_paths = _build_data_paths(mode_config)
+        data_paths = _attach_scope_to_data_paths(data_paths, scope, platform_selection.platform)
         logger.info("Analysis configuration loaded from %s", mode_config_path)
 
         logger.info("Evidence collection starting for platform=%s mode=%s", platform_selection.platform, platform_selection.analysis_mode)
@@ -615,6 +826,11 @@ def main(argv: Sequence[str] | None = None, input_func: Callable[[str], str] = i
 
         if not collector_results:
             fallback_result = collect_fallback_data(mode=platform_selection.analysis_mode)
+            fallback_result = _filter_fallback_result_for_scope(
+                fallback_result,
+                selected_platform=platform_selection.platform,
+                scope=scope,
+            )
             data_paths = _apply_fallback_output_paths(data_paths, fallback_result)
         elif _collectors_succeeded(collector_results):
             non_selected_paths, non_selected_warnings = _non_selected_collected_outputs(platform_selection.platform)
@@ -631,14 +847,27 @@ def main(argv: Sequence[str] | None = None, input_func: Callable[[str], str] = i
             )
         else:
             stale_outputs = _stale_collector_outputs(collector_results)
+            opposite_collected_outputs, opposite_collected_warnings = _non_selected_collected_outputs(
+                platform_selection.platform
+            )
             fallback_result = collect_fallback_data(
                 mode=platform_selection.analysis_mode,
-                ignored_collected_files=stale_outputs,
+                ignored_collected_files=[*stale_outputs, *opposite_collected_outputs],
+            )
+            if opposite_collected_warnings:
+                fallback_result = {
+                    **fallback_result,
+                    "warnings": [*list(fallback_result.get("warnings", []) or []), *opposite_collected_warnings],
+                }
+            fallback_result = _filter_fallback_result_for_scope(
+                fallback_result,
+                selected_platform=platform_selection.platform,
+                scope=scope,
             )
             data_paths = _apply_fallback_output_paths(
                 data_paths,
                 fallback_result,
-                excluded_paths=stale_outputs,
+                excluded_paths=[*stale_outputs, *opposite_collected_outputs],
             )
 
         print_message(format_section_title(3, 6, "Fallback check."))
@@ -678,6 +907,7 @@ def main(argv: Sequence[str] | None = None, input_func: Callable[[str], str] = i
             analysis_result,
             fallback_result,
             selected_platform=platform_selection.platform,
+            scope=scope,
         )
         print_message(format_section_title(5, 6, "Report generation started."))
         try:

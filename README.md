@@ -82,6 +82,16 @@ python app.py --mode linux --linux-log-hours 12 --linux-max-events 500
 python app.py --mode windows --windows-log-hours 12 --windows-max-events 500
 ```
 
+By default, production mode analyzes only the selected platform's collector
+data. Evidence from the other operating system is optional and must be
+explicitly included:
+
+```bash
+python app.py --mode windows --include-manual-linux
+python app.py --mode linux --include-manual-windows
+python app.py --mode windows --no-manual-cross-evidence
+```
+
 ## Production Mode
 
 Production mode uses the platform-specific sensor and the fallback search
@@ -89,12 +99,16 @@ logic:
 
 - Linux mode runs the Bash sensor and expects Linux evidence
 - Windows mode runs the PowerShell sensor and expects Windows evidence
+- evidence from the other operating system is not included unless the user
+  explicitly selects it interactively or passes the relevant CLI flag
 - production collection may require Administrator access on Windows or sudo/root
   on Linux when protected logs or policy files must be read
 - interactive production mode prompts for a log lookback window and a maximum
   event or line limit, with safe defaults of 24 hours and 1000 items
 - manually exported evidence can be placed in `data/incoming/`
 - raw logs can be placed in `logdata/linux/` or `logdata/windows/`
+- optional cross-platform evidence must be placed in `data/incoming/`,
+  `logdata/linux/`, or `logdata/windows/`
 - if older logs are needed, export them manually and place them in
   `data/incoming/`, `logdata/linux/`, or `logdata/windows/`
 - fallback is used when the primary collector does not produce usable output

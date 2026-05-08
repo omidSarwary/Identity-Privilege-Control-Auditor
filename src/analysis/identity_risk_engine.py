@@ -73,6 +73,14 @@ WINDOWS_POLICY_COLUMNS = [
 APPROVED_LINUX_SUDOERS_COLUMNS = ["username", "reason", "owner", "approved_until"]
 APPROVED_WINDOWS_ADMINS_COLUMNS = ["username", "reason", "owner", "approved_until"]
 APPROVED_SERVICE_ACCOUNTS_COLUMNS = ["username", "platform", "interactive_login_allowed", "owner"]
+PLATFORM_SOURCE_MAP = {
+    "linux_identity": "linux",
+    "linux_policy": "linux",
+    "linux_auth_log": "linux",
+    "windows_identity": "windows",
+    "windows_events": "windows",
+    "windows_policy": "windows",
+}
 
 
 def _as_path(value: Any) -> Path | None:
@@ -204,6 +212,50 @@ def _quality_entry(
     }
 
 
+def _source_platform(source_name: str) -> str | None:
+    """Return the platform family for a source, if it is platform-specific."""
+    return PLATFORM_SOURCE_MAP.get(source_name)
+
+
+def _source_selected(mode: str, data_paths: Mapping[str, Any], source_name: str) -> bool:
+    """Return whether a source is intentionally part of this analysis scope.
+
+    Production runs default to the selected platform only. The opposite
+    platform is included only when the user explicitly opted into manual
+    cross-platform evidence. Test mode keeps the existing mockdata behavior and
+    loads both platform families.
+    """
+    if str(mode).strip().lower() == "test":
+        return True
+
+    platform = _source_platform(source_name)
+    if platform is None:
+        return True
+
+    selected_platform = str(data_paths.get("selected_platform") or "").strip().lower()
+    manual_included = bool(data_paths.get("manual_cross_evidence_included", False))
+    manual_platform = str(data_paths.get("manual_cross_evidence_platform") or "none").strip().lower()
+
+    if not selected_platform:
+        return True
+    if selected_platform and platform == selected_platform:
+        return True
+    return manual_included and platform == manual_platform
+
+
+def _not_selected_quality(source_name: str, filename: str) -> dict[str, Any]:
+    """Build a non-error source record for evidence outside the chosen scope."""
+    return _quality_entry(
+        path=None,
+        loaded=False,
+        valid=True,
+        record_count=0,
+        warnings=[],
+        errors=[],
+        required=False,
+    ) | {"not_selected": True, "selection_reason": f"{filename}: source not selected for this run"}
+
+
 def _json_mode_warning(
     *,
     analysis_mode: str,
@@ -250,12 +302,18 @@ def _load_json_source(
     The helper centralizes parser error handling so callers can keep the
     high-level pipeline readable and consistent.
     """
-    path = _resolve_source_path(mode, data_paths, filename, extra_candidates=extra_candidates)
     data: Any = {}
     warnings: list[str] = []
     errors: list[str] = []
     loaded = False
     ignored_for_mode = False
+
+    if not _source_selected(mode, data_paths, source_name):
+        entry = _not_selected_quality(source_name, filename)
+        LOGGER.info("%s not selected for this analysis scope", source_name)
+        return {}, entry, {"warnings": [], "errors": [], "valid": True}
+
+    path = _resolve_source_path(mode, data_paths, filename, extra_candidates=extra_candidates)
 
     if path is None:
         errors.append(f"{source_name}: file not found")
@@ -322,11 +380,17 @@ def _load_csv_source(
     headers, row counts, and parser failures are handled the same way for each
     file.
     """
-    path = _resolve_source_path(mode, data_paths, filename, extra_candidates=extra_candidates)
     rows: list[dict[str, Any]] = []
     warnings: list[str] = []
     errors: list[str] = []
     loaded = False
+
+    if not _source_selected(mode, data_paths, source_name):
+        entry = _not_selected_quality(source_name, filename)
+        LOGGER.info("%s not selected for this analysis scope", source_name)
+        return [], entry, {"warnings": [], "errors": [], "valid": True}
+
+    path = _resolve_source_path(mode, data_paths, filename, extra_candidates=extra_candidates)
 
     if path is None:
         errors.append(f"{source_name}: file not found")
@@ -376,11 +440,17 @@ def _load_text_log_source(
     Log files are optional in this phase, but the engine still records whether
     they were found so later reporting can explain the evidence coverage.
     """
-    path = _resolve_source_path(mode, data_paths, filename, extra_candidates=extra_candidates)
     lines: list[str] = []
     warnings: list[str] = []
     errors: list[str] = []
     loaded = False
+
+    if not _source_selected(mode, data_paths, source_name):
+        entry = _not_selected_quality(source_name, filename)
+        LOGGER.info("%s not selected for this analysis scope", source_name)
+        return [], entry, {"warnings": [], "errors": [], "valid": True}
+
+    path = _resolve_source_path(mode, data_paths, filename, extra_candidates=extra_candidates)
 
     if path is None:
         warnings.append(f"{source_name}: log source not available")
@@ -631,6 +701,15 @@ def analyze_inputs(inputs: dict) -> dict:
     LOGGER.info("Starting analysis for run_id=%s mode=%s", run_id, mode)
 
     data_quality = _aggregate_data_quality(inputs.get("data_sources", {}))
+    data_sources = inputs.get("data_sources", {})
+    linux_policy_selected = not bool((data_sources.get("linux_policy", {}) or {}).get("not_selected", False))
+    windows_policy_selected = not bool((data_sources.get("windows_policy", {}) or {}).get("not_selected", False))
+    expected_policy_baseline = dict(inputs.get("expected_policy_baseline") or {})
+    if not linux_policy_selected:
+        expected_policy_baseline.pop("ssh_policy", None)
+    if not windows_policy_selected:
+        for key in ("windows_policy_checks", "audit_policy", "firewall_policy", "execution_policy"):
+            expected_policy_baseline.pop(key, None)
 
     normalized_identities = normalize_identities(
         inputs.get("linux_identity"),
@@ -651,14 +730,14 @@ def analyze_inputs(inputs: dict) -> dict:
         correlated_events,
         linux_policy=inputs.get("linux_policy"),
         windows_policy_rows=inputs.get("windows_policy_rows"),
-        expected_policy_baseline=inputs.get("expected_policy_baseline"),
+        expected_policy_baseline=expected_policy_baseline,
     )
 
     findings = detect_anomalies(
         correlated_policy,
         linux_policy=inputs.get("linux_policy"),
         windows_policy_rows=inputs.get("windows_policy_rows"),
-        expected_policy_baseline=inputs.get("expected_policy_baseline"),
+        expected_policy_baseline=expected_policy_baseline,
         approved_linux_sudoers=inputs.get("approved_linux_sudoers"),
         approved_windows_admins=inputs.get("approved_windows_admins"),
         approved_service_accounts=inputs.get("approved_service_accounts"),

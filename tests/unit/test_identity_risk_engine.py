@@ -161,9 +161,63 @@ def test_manual_production_linux_evidence_from_incoming_remains_supported(tmp_pa
 
     paths = _data_paths(tmp_path, collected=collected, incoming=incoming)
     paths.update({name: str(path) for name, path in windows_sources.items()})
+    paths["selected_platform"] = "windows"
+    paths["manual_cross_evidence_included"] = "true"
+    paths["manual_cross_evidence_platform"] = "linux"
 
     inputs = load_analysis_inputs("production", paths)
 
     assert inputs["linux_identity"]["host"] == "manual-linux"
     assert inputs["data_sources"]["linux_identity"]["loaded"] is True
     assert inputs["data_sources"]["linux_identity"]["valid"] is True
+
+
+def test_windows_scope_without_manual_linux_marks_linux_sources_not_selected(tmp_path) -> None:
+    """Windows-only production scope should not treat missing Linux as an error."""
+    collected = tmp_path / "data" / "collected"
+    incoming = tmp_path / "data" / "incoming"
+    collected.mkdir(parents=True)
+    incoming.mkdir(parents=True)
+    windows_sources = _write_minimal_windows_sources(collected)
+
+    paths = _data_paths(tmp_path, collected=collected, incoming=incoming)
+    paths.update({name: str(path) for name, path in windows_sources.items()})
+    paths["selected_platform"] = "windows"
+    paths["manual_cross_evidence_included"] = False
+    paths["manual_cross_evidence_platform"] = "none"
+
+    inputs = load_analysis_inputs("production", paths)
+
+    assert inputs["linux_identity"] == {}
+    assert inputs["data_sources"]["linux_identity"]["not_selected"] is True
+    assert inputs["data_sources"]["linux_identity"]["valid"] is True
+    assert not any("linux_identity" in error for error in inputs["data_quality"]["errors"])
+
+    result = run_identity_risk_engine("production", paths, run_id="20260508-040000")
+    finding_text = "\n".join(finding.get("reason", "") for finding in result["findings"])
+    assert "Linux SSH policy data was expected but not supplied" not in finding_text
+
+
+def test_linux_scope_without_manual_windows_marks_windows_sources_not_selected(tmp_path) -> None:
+    """Linux-only production scope should not treat missing Windows as an error."""
+    collected = tmp_path / "data" / "collected"
+    incoming = tmp_path / "data" / "incoming"
+    collected.mkdir(parents=True)
+    incoming.mkdir(parents=True)
+    shutil.copyfile(MOCKDATA_DIR / "linux_identity.json", incoming / "linux_identity.json")
+    shutil.copyfile(MOCKDATA_DIR / "linux_policy.json", incoming / "linux_policy.json")
+
+    paths = _data_paths(tmp_path, collected=collected, incoming=incoming)
+    paths["selected_platform"] = "linux"
+    paths["manual_cross_evidence_included"] = False
+    paths["manual_cross_evidence_platform"] = "none"
+
+    production_inputs = load_analysis_inputs("production", paths)
+    assert production_inputs["windows_identity_rows"] == []
+    assert production_inputs["data_sources"]["windows_identity"]["not_selected"] is True
+    assert production_inputs["data_sources"]["windows_identity"]["valid"] is True
+    assert not any("windows_identity" in error for error in production_inputs["data_quality"]["errors"])
+
+    result = run_identity_risk_engine("production", paths, run_id="20260508-040001")
+    finding_text = "\n".join(finding.get("reason", "") for finding in result["findings"])
+    assert "Windows policy data was expected but not supplied" not in finding_text

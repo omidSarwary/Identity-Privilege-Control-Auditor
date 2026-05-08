@@ -67,9 +67,18 @@ Useful manual checks include:
 - `python app.py --mode test`
 - `python app.py --mode linux`
 - `python app.py --mode windows`
+- `python app.py --mode windows --include-manual-linux`
+- `python app.py --mode linux --include-manual-windows`
 
 These checks help confirm that the orchestrator, collectors, fallback logic,
 and reporting flow still behave as expected.
+
+Production CLI runs are single-platform by default. This means Windows mode
+does not load Linux evidence unless `--include-manual-linux` is used, and Linux
+mode does not load Windows evidence unless `--include-manual-windows` is used.
+Manual evidence for the other operating system should be placed in
+`data/incoming/`, `logdata/linux/`, or `logdata/windows/` before running the
+manual cross-platform test.
 
 ## QA Summary
 

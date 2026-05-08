@@ -121,6 +121,10 @@ def detect_anomalies(
     approved_windows = _as_username_set(approved_windows_admins)
     expected_ssh_policy = (expected_policy_baseline or {}).get("ssh_policy", {})
     expected_windows_policy = expected_policy_baseline or {}
+    windows_policy_expected = any(
+        key in expected_windows_policy
+        for key in ("windows_policy_checks", "audit_policy", "firewall_policy", "execution_policy")
+    )
     linux_policy_map = (linux_policy or {}).get("policy", linux_policy or {})
     all_events = _collect_all_events(normalized_identities)
     any_privileged_activity = any(
@@ -190,7 +194,7 @@ def detect_anomalies(
             audit_finding["identity"] = SYSTEM_POLICY_IDENTITY
             system_findings.append(audit_finding)
 
-    if expected_windows_policy and not windows_policy_rows:
+    if windows_policy_expected and not windows_policy_rows:
         system_findings.append(
             missing_log_source_but_other_data_exists(
                 source="correlation",
