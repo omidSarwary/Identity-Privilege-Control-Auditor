@@ -44,6 +44,9 @@ $EventsCsvPath = Join-Path $CollectedDir 'windows_events.csv'
 $PolicyCsvPath = Join-Path $CollectedDir 'windows_policy.csv'
 $AuditLogPath = Join-Path $LogsDir 'windows_audit.log'
 $AnomaliesLogPath = Join-Path $LogsDir 'anomalies.log'
+$script:IdentityHeaders = @('ComputerName', 'CollectionTime', 'Username', 'Enabled', 'IsLocalAdmin', 'LastLogon', 'Source')
+$script:EventHeaders = @('ComputerName', 'TimeCreated', 'EventId', 'TargetUserName', 'IpAddress', 'EventType')
+$script:PolicyHeaders = @('ComputerName', 'CheckName', 'Status', 'Value', 'RiskHint')
 
 $script:AuditRecords = @()
 $script:IdentityRecords = @()
@@ -77,6 +80,35 @@ function Write-Log {
     if ($Level -ne 'INFO') {
         Add-Content -Path $AnomaliesLogPath -Value $entry -Encoding UTF8
     }
+}
+
+function Write-RecordsCsv {
+    <#
+    .SYNOPSIS
+        Write a collection to CSV with a stable schema.
+
+    .DESCRIPTION
+        Handles empty collections by creating a header-only file so the sensor
+        can still complete safely when no rows are returned in the selected
+        time window.
+    #>
+    param(
+        [Parameter(Mandatory = $true)]
+        [object[]]$InputObject,
+
+        [Parameter(Mandatory = $true)]
+        [string]$Path,
+
+        [Parameter(Mandatory = $true)]
+        [string[]]$Headers
+    )
+
+    if (-not $InputObject -or $InputObject.Count -eq 0) {
+        Set-Content -Path $Path -Value ($Headers -join ',') -Encoding UTF8
+        return
+    }
+
+    $InputObject | Export-Csv -LiteralPath $Path -NoTypeInformation -Encoding UTF8
 }
 
 function Resolve-PositiveIntValue {
@@ -203,23 +235,31 @@ function Get-LocalIdentityData {
         return Import-Csv -LiteralPath $testPath
     }
 
+    Write-Log -Level 'INFO' -Message 'Windows identity collection started.'
     if (-not (Get-Command Get-LocalUser -ErrorAction SilentlyContinue)) {
         Write-Log -Level 'WARNING' -Message 'Get-LocalUser is not available on this host.'
         return @()
     }
 
-    $localUsers = Get-LocalUser -ErrorAction Stop
+    $localUsers = @()
     $adminMembers = @()
     try {
+        $localUsers = Get-LocalUser -ErrorAction Stop
         $adminMembers = Get-LocalGroupMember -Group 'Administrators' -ErrorAction Stop
     }
     catch {
-        Write-Log -Level 'WARNING' -Message 'The local Administrators group could not be read.'
+        $message = $_.Exception.Message
+        if ($message -match 'Access is denied|permission denied') {
+            Write-Log -Level 'WARNING' -Message "The local Administrators group could not be read. Administrator rights may be required. $message"
+        }
+        else {
+            Write-Log -Level 'WARNING' -Message "The local Administrators group could not be read. $message"
+        }
     }
 
     $adminNames = @($adminMembers | ForEach-Object { $_.Name })
 
-    return $localUsers | ForEach-Object {
+    $records = @($localUsers | ForEach-Object {
         [pscustomobject]@{
             ComputerName      = $env:COMPUTERNAME
             CollectionTime    = (Get-Date).ToUniversalTime().ToString('yyyy-MM-ddTHH:mm:ssZ')
@@ -229,7 +269,10 @@ function Get-LocalIdentityData {
             LastLogon         = if ($_.LastLogon) { $_.LastLogon.ToUniversalTime().ToString('yyyy-MM-ddTHH:mm:ssZ') } else { '' }
             Source            = 'local_user'
         }
-    }
+    })
+
+    Write-Log -Level 'INFO' -Message ("Windows identity collection completed: {0} user(s)." -f $records.Count)
+    return $records
 }
 
 function Get-EventDataValue {
@@ -280,11 +323,15 @@ function Get-LocalAdminMembers {
         return @($rows | Where-Object { $_.IsLocalAdmin -eq 'True' } | Select-Object -ExpandProperty Username)
     }
 
+    Write-Log -Level 'INFO' -Message 'Windows local administrator collection started.'
     try {
-        return @(Get-LocalGroupMember -Group 'Administrators' -ErrorAction Stop | Select-Object -ExpandProperty Name)
+        $members = @(Get-LocalGroupMember -Group 'Administrators' -ErrorAction Stop | Select-Object -ExpandProperty Name)
+        Write-Log -Level 'INFO' -Message ("Windows local administrator collection completed: {0} member(s)." -f $members.Count)
+        return $members
     }
     catch {
-        Write-Log -Level 'WARNING' -Message 'The local Administrators group could not be read.'
+        $message = $_.Exception.Message
+        Write-Log -Level 'WARNING' -Message "The local Administrators group could not be read. Administrator rights may be required. $message"
         return @()
     }
 }
@@ -305,6 +352,7 @@ function Get-WindowsSecurityEvents {
         return Import-Csv -LiteralPath $testPath
     }
 
+    Write-Log -Level 'INFO' -Message ("Windows Security event collection started. LogHours={0}, MaxEvents={1}, StartTime={2}, EventIds=4624,4625" -f $script:ResolvedLogHours, $script:ResolvedMaxEvents, $script:ResolvedStartTime.ToUniversalTime().ToString('yyyy-MM-ddTHH:mm:ssZ'))
     $filter = @{
         LogName   = 'Security'
         Id        = 4624, 4625
@@ -325,11 +373,22 @@ function Get-WindowsSecurityEvents {
                 }
             }
         )
-        Write-Log -Level 'INFO' -Message ("Collected {0} Windows Security events from Event IDs 4624 and 4625." -f $events.Count)
+        if ($events.Count -eq 0) {
+            Write-Log -Level 'INFO' -Message 'No Windows Security events matched the selected time window and event IDs.'
+        }
+        else {
+            Write-Log -Level 'INFO' -Message ("Collected {0} Windows Security events from Event IDs 4624 and 4625." -f $events.Count)
+        }
         return $events
     }
     catch {
-        Write-Log -Level 'WARNING' -Message 'The Security event log could not be read.'
+        $message = $_.Exception.Message
+        if ($message -match 'Access is denied|permission denied') {
+            Write-Log -Level 'WARNING' -Message "The Security event log could not be read. Administrator rights may be required. $message"
+        }
+        else {
+            Write-Log -Level 'WARNING' -Message "The Security event log could not be read. $message"
+        }
         return @()
     }
 }
@@ -350,6 +409,7 @@ function Get-WindowsPolicyState {
         return Import-Csv -LiteralPath $testPath
     }
 
+    Write-Log -Level 'INFO' -Message 'Windows policy collection started.'
     $policyRows = @()
 
     try {
@@ -365,7 +425,8 @@ function Get-WindowsPolicyState {
         }
     }
     catch {
-        Write-Log -Level 'WARNING' -Message 'Windows Firewall profiles could not be read.'
+        $message = $_.Exception.Message
+        Write-Log -Level 'WARNING' -Message "Windows Firewall profiles could not be read. Administrator rights may be required. $message"
     }
 
     try {
@@ -379,7 +440,8 @@ function Get-WindowsPolicyState {
         }
     }
     catch {
-        Write-Log -Level 'WARNING' -Message 'The PowerShell execution policy could not be read.'
+        $message = $_.Exception.Message
+        Write-Log -Level 'WARNING' -Message "The PowerShell execution policy could not be read. $message"
     }
 
     try {
@@ -404,9 +466,11 @@ function Get-WindowsPolicyState {
         }
     }
     catch {
-        Write-Log -Level 'WARNING' -Message 'Audit policy could not be read.'
+        $message = $_.Exception.Message
+        Write-Log -Level 'WARNING' -Message "Audit policy could not be read. Administrator rights may be required. $message"
     }
 
+    Write-Log -Level 'INFO' -Message ("Windows policy collection completed: {0} row(s)." -f $policyRows.Count)
     return $policyRows
 }
 
@@ -424,7 +488,7 @@ function Export-IdentityCsv {
         [object[]]$InputObject
     )
 
-    $InputObject | Export-Csv -LiteralPath $IdentityCsvPath -NoTypeInformation -Encoding UTF8
+    Write-RecordsCsv -InputObject $InputObject -Path $IdentityCsvPath -Headers $script:IdentityHeaders
 }
 
 function Export-EventsCsv {
@@ -441,7 +505,7 @@ function Export-EventsCsv {
         [object[]]$InputObject
     )
 
-    $InputObject | Export-Csv -LiteralPath $EventsCsvPath -NoTypeInformation -Encoding UTF8
+    Write-RecordsCsv -InputObject $InputObject -Path $EventsCsvPath -Headers $script:EventHeaders
 }
 
 function Export-PolicyCsv {
@@ -458,7 +522,7 @@ function Export-PolicyCsv {
         [object[]]$InputObject
     )
 
-    $InputObject | Export-Csv -LiteralPath $PolicyCsvPath -NoTypeInformation -Encoding UTF8
+    Write-RecordsCsv -InputObject $InputObject -Path $PolicyCsvPath -Headers $script:PolicyHeaders
 }
 
 function Invoke-WindowsAudit {
@@ -480,6 +544,7 @@ function Invoke-WindowsAudit {
     $script:IdentityRecords = @(Get-LocalIdentityData)
     $script:EventRecords = @(Get-WindowsSecurityEvents)
     $script:PolicyRecords = @(Get-WindowsPolicyState)
+    Write-Log -Level 'INFO' -Message ("Windows collection summary: identity={0}, events={1}, policy={2}" -f $script:IdentityRecords.Count, $script:EventRecords.Count, $script:PolicyRecords.Count)
 
     Export-IdentityCsv -InputObject $script:IdentityRecords
     Export-EventsCsv -InputObject $script:EventRecords

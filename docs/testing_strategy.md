@@ -48,6 +48,8 @@ avoid scanning large logs in one run:
 These sensor runs may write most of their evidence to `data/collected/` and
 `logs/`, so the terminal output can be short. Successful runs should be
 confirmed by exit code `0` and by validating the generated output files.
+Production verification may require Administrator rights on Windows or
+sudo/root on Linux if protected logs and policy files must be read.
 
 Suggested file checks:
 

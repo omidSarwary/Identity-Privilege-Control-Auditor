@@ -89,6 +89,8 @@ logic:
 
 - Linux mode runs the Bash sensor and expects Linux evidence
 - Windows mode runs the PowerShell sensor and expects Windows evidence
+- production collection may require Administrator access on Windows or sudo/root
+  on Linux when protected logs or policy files must be read
 - interactive production mode prompts for a log lookback window and a maximum
   event or line limit, with safe defaults of 24 hours and 1000 items
 - manually exported evidence can be placed in `data/incoming/`
@@ -100,7 +102,7 @@ logic:
 ## Test Mode
 
 Test mode is safe and isolated. It uses mock data and simulated logs instead of
-real system files.
+real system files and does not require elevated privileges.
 
 ```bash
 python app.py --test
@@ -167,6 +169,8 @@ risk first.
 ## Known Limitations
 
 - The tool is read-only and does not remediate findings automatically.
+- If production runs are not elevated, fallback may be used and reports can be
+  partial because some protected sources were not readable.
 - Some evidence sources may be missing in real environments, which can trigger
   fallback behavior or a safe exit.
 - The project depends on the quality of the provided logs, baselines, and

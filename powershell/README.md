@@ -35,6 +35,11 @@ powershell -ExecutionPolicy Bypass -File powershell/windows_identity_audit.ps1 -
 The script uses safe defaults of 24 hours and 1000 events when these options
 are not provided.
 
+When protected Security logs or audit policy data must be inspected, run the
+sensor from an elevated PowerShell session so access checks can succeed
+cleanly. If the session is not elevated, the orchestrator may fall back to
+manual evidence or partial reports.
+
 ### Test
 
 ```powershell
@@ -42,7 +47,8 @@ powershell -ExecutionPolicy Bypass -File powershell/windows_identity_audit.ps1 -
 ```
 
 Test mode uses the approved mock data in `tests/mockdata/` and does not touch
-real Event Viewer logs.
+real Event Viewer logs. Test mode does not require elevated privileges.
+Test mode does not require elevated privileges.
 
 If older Windows logs are needed, export them manually and place them in
 `data/incoming/` or `logdata/windows/`.

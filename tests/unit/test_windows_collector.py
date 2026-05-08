@@ -92,3 +92,82 @@ def test_collect_windows_data_reports_missing_outputs(monkeypatch, tmp_path) -> 
     assert str(identity_path) in result["missing_outputs"]
     assert str(events_path) in result["missing_outputs"]
     assert str(policy_path) in result["missing_outputs"]
+
+
+def test_collect_windows_data_summarizes_access_denied(monkeypatch, tmp_path) -> None:
+    """Access-denied Windows output should surface as an Administrator hint."""
+    identity_path = tmp_path / "windows_identity.csv"
+    events_path = tmp_path / "windows_events.csv"
+    policy_path = tmp_path / "windows_policy.csv"
+
+    monkeypatch.setattr(
+        windows_collector,
+        "EXPECTED_OUTPUTS",
+        {
+            "windows_identity": identity_path,
+            "windows_events": events_path,
+            "windows_policy": policy_path,
+        },
+    )
+    monkeypatch.setattr(windows_collector, "WINDOWS_SENSOR_SCRIPT", tmp_path / "windows_identity_audit.ps1")
+    monkeypatch.setattr(windows_collector.shutil, "which", lambda _: "pwsh")
+    monkeypatch.setattr(
+        windows_collector,
+        "run_command",
+        lambda command, **kwargs: CommandResult(
+            command=tuple(command),
+            returncode=1,
+            stdout="",
+            stderr="Access is denied.",
+            timed_out=False,
+            started_at=0.0,
+            finished_at=1.0,
+        ),
+    )
+
+    result = windows_collector.collect_windows_data(mode="production")
+
+    assert result["success"] is False
+    assert "Administrator" in result["reason"]
+    assert result["output_statuses"]["windows_identity"]["status"] == "failed"
+
+
+def test_collect_windows_data_keeps_outputs_when_command_warns(monkeypatch, tmp_path) -> None:
+    """Windows outputs should stay usable when the command returns a warning exit code."""
+    identity_path = tmp_path / "windows_identity.csv"
+    events_path = tmp_path / "windows_events.csv"
+    policy_path = tmp_path / "windows_policy.csv"
+    identity_path.write_text("ComputerName,CollectionTime,Username,Enabled,IsLocalAdmin,LastLogon,Source\n", encoding="utf-8")
+    events_path.write_text("ComputerName,TimeCreated,EventId,TargetUserName,IpAddress,EventType\n", encoding="utf-8")
+    policy_path.write_text("ComputerName,CheckName,Status,Value,RiskHint\n", encoding="utf-8")
+
+    monkeypatch.setattr(
+        windows_collector,
+        "EXPECTED_OUTPUTS",
+        {
+            "windows_identity": identity_path,
+            "windows_events": events_path,
+            "windows_policy": policy_path,
+        },
+    )
+    monkeypatch.setattr(windows_collector, "WINDOWS_SENSOR_SCRIPT", tmp_path / "windows_identity_audit.ps1")
+    monkeypatch.setattr(windows_collector.shutil, "which", lambda _: "pwsh")
+    monkeypatch.setattr(
+        windows_collector,
+        "run_command",
+        lambda command, **kwargs: CommandResult(
+            command=tuple(command),
+            returncode=1,
+            stdout="completed with warnings",
+            stderr="The Security log could not be read.",
+            timed_out=False,
+            started_at=0.0,
+            finished_at=1.0,
+        ),
+    )
+
+    result = windows_collector.collect_windows_data(mode="production")
+
+    assert result["success"] is True
+    assert result["command"]["returncode"] == 1
+    assert result["missing_outputs"] == []

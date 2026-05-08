@@ -23,6 +23,7 @@ python app.py --mode test
 
 In test mode the tool uses mock data and simulated logs only. These commands
 run the full Python pipeline, not the Linux or Windows collectors directly.
+Test mode does not require elevated privileges.
 
 If you want to test the sensors separately, run them directly:
 
@@ -63,6 +64,8 @@ The chosen platform determines which sensor runs:
 
 - Linux mode uses the Bash sensor
 - Windows mode uses the PowerShell sensor
+- production collection may require sudo/root on Linux or Administrator on
+  Windows when protected logs or policy files are inspected
 
 Production runs can also be bounded with CLI options so very large logs do not
 need to be scanned in one pass:
@@ -74,6 +77,8 @@ python app.py --mode windows --windows-log-hours 12 --windows-max-events 500
 
 Interactive production mode prompts for the same values and falls back to the
 safe defaults of 24 hours and 1000 events or lines when Enter is pressed.
+If the run is not elevated, fallback may be used and the resulting reports may
+be partial because some protected sources were not readable.
 
 ## Platform Choice
 
@@ -89,6 +94,9 @@ logs are needed, export them manually and place them in:
 - `logdata/linux/`
 - `logdata/windows/`
 
+If older logs are available, exporting them manually into those directories is
+the supported way to widen the evidence window.
+
 ## Fallback and Manual Evidence
 
 If the primary collector does not produce usable output, the fallback collector
@@ -99,6 +107,8 @@ searches approved locations such as:
 - `logdata/windows/`
 
 The fallback flow is read-only and only uses existing files.
+If fallback cannot find usable evidence, the application exits safely and the
+console explains which directories were searched.
 
 ## Safe Exit
 

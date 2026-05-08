@@ -32,6 +32,11 @@ bash/linux_identity_audit.sh --mode production --log-hours 12 --max-events 500
 The script uses safe defaults of 24 hours and 1000 lines or events when these
 options are not provided.
 
+When protected Linux logs or policy files must be inspected, run the sensor
+with sudo/root so access checks can succeed cleanly. If the run is not
+elevated, the orchestrator may fall back to manual evidence or partial
+reports.
+
 ### Test
 
 ```bash
@@ -39,7 +44,8 @@ bash/linux_identity_audit.sh --mode test
 ```
 
 Test mode uses the approved mock data under `tests/mockdata/` and keeps the
-real system logs untouched.
+real system logs untouched. Test mode does not require elevated privileges.
+Test mode does not require elevated privileges.
 
 If older Linux logs are needed, export them manually and place them in
 `data/incoming/` or `logdata/linux/`.

@@ -32,6 +32,47 @@ def _verify_outputs(expected_outputs: dict[str, Path]) -> list[str]:
     return missing_outputs
 
 
+def _collector_reason(command_result: dict[str, Any], missing_outputs: list[str]) -> str:
+    """Translate a raw collector result into a short human-readable reason."""
+    if command_result.get("timed_out"):
+        return "collector timed out"
+
+    returncode = command_result.get("returncode")
+    stderr = str(command_result.get("stderr_summary") or command_result.get("stderr") or "").lower()
+
+    if returncode == 127:
+        return "command unavailable"
+    if "permission denied" in stderr or "operation not permitted" in stderr:
+        return "permission denied; run with sudo/root if protected files must be inspected"
+    if "no such file" in stderr or "file not found" in stderr:
+        return "file not found"
+    if missing_outputs:
+        return "output file missing"
+    if returncode not in (0, None):
+        return f"collector exited with code {returncode}"
+    return "completed successfully"
+
+
+def _build_output_statuses(missing_outputs: list[str], reason: str) -> dict[str, dict[str, str]]:
+    """Build per-file status records for the user-facing summary."""
+    statuses: dict[str, dict[str, str]] = {}
+    for name, path in EXPECTED_OUTPUTS.items():
+        path_str = str(path)
+        if path_str in missing_outputs:
+            statuses[name] = {
+                "status": "failed",
+                "reason": reason,
+                "path": path_str,
+            }
+        else:
+            statuses[name] = {
+                "status": "collected",
+                "reason": "output file created",
+                "path": path_str,
+            }
+    return statuses
+
+
 def collect_linux_data(
     mode: str = "production",
     *,
@@ -67,11 +108,15 @@ def collect_linux_data(
     command_result = run_command(command, cwd=PROJECT_ROOT, timeout=timeout)
 
     missing_outputs = _verify_outputs(EXPECTED_OUTPUTS)
-    success = command_result.succeeded and not missing_outputs
-    if success:
+    success = not command_result.timed_out and not missing_outputs
+    reason = _collector_reason(command_result.to_dict(), missing_outputs)
+    output_statuses = _build_output_statuses(missing_outputs, reason)
+    if success and command_result.succeeded:
         LOGGER.info("Linux collector completed successfully")
+    elif success:
+        LOGGER.warning("Linux collector completed with warnings: %s", reason)
     else:
-        LOGGER.warning("Linux collector did not produce all expected outputs")
+        LOGGER.warning("Linux collector did not produce all expected outputs: %s", reason)
 
     return {
         "platform": "linux",
@@ -80,4 +125,6 @@ def collect_linux_data(
         "expected_outputs": {name: str(path) for name, path in EXPECTED_OUTPUTS.items()},
         "missing_outputs": missing_outputs,
         "success": success,
+        "reason": reason,
+        "output_statuses": output_statuses,
     }

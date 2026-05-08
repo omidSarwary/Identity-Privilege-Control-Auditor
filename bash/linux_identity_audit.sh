@@ -279,6 +279,9 @@ for line in passwd_output.splitlines():
 print(json.dumps(users, ensure_ascii=False))
 PY
   )"; then
+    local user_count
+    user_count="$(python3 -c 'import json,sys; print(len(json.loads(sys.argv[1])))' "$LOCAL_USERS_JSON")"
+    log "INFO" "Collected $user_count local Linux user(s)."
     return 0
   fi
 
@@ -331,6 +334,9 @@ for group in ("sudo", "wheel"):
 print(json.dumps(sorted(members), ensure_ascii=False))
 PY
   )"; then
+    local sudo_count
+    sudo_count="$(python3 -c 'import json,sys; print(len(json.loads(sys.argv[1])))' "$SUDO_USERS_JSON")"
+    log "INFO" "Collected $sudo_count sudo-enabled account(s)."
     return 0
   fi
 
@@ -347,7 +353,7 @@ collect_auth_events_from_file() {
   if ! tail -n "$MAX_EVENTS" "$source_path" > "$bounded_file"; then
     rm -f "$bounded_file" 2>/dev/null || true
     rm -f "$output_file" 2>/dev/null || true
-    log "WARNING" "Unable to read auth log source: $source_path"
+    log "WARNING" "Unable to read auth log source: $source_path. sudo/root may be required if the file is protected."
     return 1
   fi
 
@@ -403,7 +409,8 @@ PY
     if ! AUTH_EVENTS_JSON="$(cat "$output_file")"; then
       AUTH_EVENTS_JSON='[]'
     fi
-    log "INFO" "Collected $collected_count Linux auth events from $source_label using the last $MAX_EVENTS lines."
+    log "INFO" "Linux auth log source used: $source_label"
+    log "INFO" "Collected $collected_count Linux auth event(s) from $source_label using the last $MAX_EVENTS lines."
     rm -f "$bounded_file" 2>/dev/null || true
     rm -f "$output_file" 2>/dev/null || true
     return 0
@@ -484,7 +491,7 @@ PY
 
   if [[ -z "$log_source" ]]; then
     AUTH_EVENTS_JSON='[]'
-    mark_missing_source "No readable auth log source was found."
+    mark_missing_source "No readable auth log source was found. sudo/root may be required if protected auth logs must be inspected."
     return 2
   fi
 
@@ -520,11 +527,12 @@ PY
     log "ERROR" "Failed to read mock SSH policy"
     return 1
   fi
+  log "INFO" "Linux SSH policy check started."
 
   local sshd_config="/etc/ssh/sshd_config"
   if [[ ! -r "$sshd_config" ]]; then
     SSH_POLICY_JSON='{"permit_root_login":"unknown","password_authentication":"unknown","pubkey_authentication":"unknown"}'
-    mark_missing_source "SSH policy source is not readable: $sshd_config"
+    mark_missing_source "SSH policy source is not readable: $sshd_config. sudo/root may be required to inspect this file."
     return 2
   fi
 
@@ -567,6 +575,7 @@ for raw_line in lines:
 print(json.dumps(defaults, ensure_ascii=False))
 PY
   )"; then
+    log "INFO" "Linux SSH policy check completed."
     return 0
   fi
 
@@ -602,6 +611,7 @@ PY
     log "ERROR" "Failed to build test-mode file permission snapshot"
     return 1
   fi
+  log "INFO" "Linux sensitive file permission check started."
 
   if FILE_PERMISSIONS_JSON="$(
     python3 <<'PY'
@@ -643,12 +653,13 @@ print(json.dumps({"files": results}, ensure_ascii=False))
 sys.exit(2 if missing else 0)
 PY
   )"; then
+    log "INFO" "Linux sensitive file permission check completed."
     return 0
   fi
 
   rc=$?
   if [[ "$rc" -eq 2 ]]; then
-    mark_missing_source "One or more sensitive files were missing or unreadable."
+    mark_missing_source "One or more sensitive files were missing or unreadable. sudo/root may be required for protected files."
     return 2
   fi
 
@@ -821,6 +832,8 @@ main() {
   else
     safe_exit 3 "Policy export failed"
   fi
+
+  log "INFO" "Linux collection summary: identity users=$(python3 -c 'import json,sys; print(len(json.loads(sys.argv[1])))' "$LOCAL_USERS_JSON"), sudo members=$(python3 -c 'import json,sys; print(len(json.loads(sys.argv[1])))' "$SUDO_USERS_JSON"), auth events=$(python3 -c 'import json,sys; print(len(json.loads(sys.argv[1])))' "$AUTH_EVENTS_JSON")"
 
   if [[ "$EXIT_CODE" -eq 2 ]]; then
     safe_exit 2 "Linux audit completed with warnings"

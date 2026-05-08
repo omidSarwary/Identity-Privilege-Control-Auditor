@@ -8,6 +8,7 @@ import app
 from src.core.bootstrap import BootstrapStatus
 from src.core.environment import EnvironmentStatus
 from src.reporting.report_writer import write_reports
+import src.utils.safe_exit as safe_exit_module
 
 
 def _bootstrap_status() -> BootstrapStatus:
@@ -98,7 +99,7 @@ def test_linux_production_mode_shows_manual_windows_guidance_and_generates_repor
     assert exit_code == 0
     assert any("Linux logs will be collected automatically" in message for message in captured_messages)
     assert any("Environment checks started." in message for message in captured_messages)
-    assert any("Collecting available evidence." in message for message in captured_messages)
+    assert any("Collecting Linux evidence." in message for message in captured_messages)
     assert any("Reports generated." in message for message in captured_messages)
     assert _report_paths(tmp_path)["json_report"].exists()
 
@@ -148,9 +149,57 @@ def test_windows_production_mode_shows_manual_linux_guidance_and_safe_exits(monk
     monkeypatch.setattr(app, "run_identity_risk_engine", lambda *args, **kwargs: (_ for _ in ()).throw(AssertionError("engine should not run when no data exists")))
     monkeypatch.setattr(app, "write_reports", lambda *args, **kwargs: (_ for _ in ()).throw(AssertionError("reports should not be written when no data exists")))
     monkeypatch.setattr(app, "print_message", lambda message: captured_messages.append(message))
+    monkeypatch.setattr(safe_exit_module, "print_message", lambda message: captured_messages.append(message))
 
     exit_code = app.main(["--mode", "windows", "--no-bootstrap"], input_func=lambda _: "windows")
 
     assert exit_code == 1
     assert any("Windows logs will be collected automatically" in message for message in captured_messages)
-    assert any("No usable data was found. The application will exit safely." in message for message in captured_messages)
+    assert any("No valid evidence files were found." in message for message in captured_messages)
+
+
+def test_windows_production_mode_uses_collector_outputs_when_command_returns_warning(monkeypatch, tmp_path) -> None:
+    """A warning exit code should not force fallback when the collector wrote all outputs."""
+    fixed_run_id = "20260507-130001"
+    captured_messages: list[str] = []
+
+    monkeypatch.setattr(app, "create_run_id", lambda: fixed_run_id)
+    monkeypatch.setattr(app, "load_app_config", lambda: {"project_name": "NordSec Identity & Privilege Control Auditor", "version": "0.2.0"})
+    monkeypatch.setattr(app, "bootstrap_project", lambda perform_full_checks=True: _bootstrap_status())
+    monkeypatch.setattr(
+        app,
+        "collect_linux_data",
+        lambda mode, **kwargs: (_ for _ in ()).throw(AssertionError("linux collector should not run for windows production mode")),
+    )
+    monkeypatch.setattr(
+        app,
+        "collect_windows_data",
+        lambda mode, **kwargs: {
+            "platform": "windows",
+            "mode": mode,
+            "success": True,
+            "missing_outputs": [],
+            "expected_outputs": {"windows_identity": str(tmp_path / "windows_identity.csv")},
+            "command": {"returncode": 1, "stderr_summary": "The Security log could not be read."},
+            "reason": "collector exited with code 1",
+            "output_statuses": {
+                "windows_identity": {"status": "collected", "reason": "output file created", "path": str(tmp_path / "windows_identity.csv")}
+            },
+        },
+    )
+    monkeypatch.setattr(
+        app,
+        "collect_fallback_data",
+        lambda mode, **kwargs: (_ for _ in ()).throw(AssertionError("fallback should not run when collector outputs are usable")),
+    )
+    monkeypatch.setattr(app, "run_identity_risk_engine", lambda mode, data_paths, run_id: _analysis_result(run_id, mode))
+    monkeypatch.setattr(app, "write_reports", lambda analysis_result: write_reports(analysis_result, output_root=tmp_path))
+    monkeypatch.setattr(app, "print_message", lambda message: captured_messages.append(message))
+    monkeypatch.setattr(safe_exit_module, "print_message", lambda message: captured_messages.append(message))
+
+    exit_code = app.main(["--mode", "windows", "--no-bootstrap"], input_func=lambda _: "windows")
+
+    assert exit_code == 0
+    assert any("Collector warning:" in message for message in captured_messages)
+    assert any("Fallback used: No." in message for message in captured_messages)
+    assert _report_paths(tmp_path)["json_report"].exists()

@@ -45,7 +45,21 @@ class CommandResult:
         payload = asdict(self)
         payload["duration_seconds"] = self.duration_seconds
         payload["succeeded"] = self.succeeded
+        payload["stdout_summary"] = self.stdout_summary
+        payload["stderr_summary"] = self.stderr_summary
         return payload
+
+    @property
+    def stdout_summary(self) -> str:
+        """Return a short, trimmed stdout preview for user-facing summaries."""
+        text = self.stdout.strip()
+        return text.splitlines()[0][:200] if text else ""
+
+    @property
+    def stderr_summary(self) -> str:
+        """Return a short, trimmed stderr preview for user-facing summaries."""
+        text = self.stderr.strip()
+        return text.splitlines()[0][:200] if text else ""
 
 
 def run_command(

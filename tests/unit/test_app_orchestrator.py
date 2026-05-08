@@ -359,3 +359,54 @@ def test_main_passes_fallback_metadata_to_report_writer(monkeypatch) -> None:
     assert exit_code == 0
     assert captured["analysis_result"]["fallback_used"] is True
     assert captured["analysis_result"]["fallback_reason"] == "mockdata used"
+
+
+def test_main_reports_fallback_reason_for_incomplete_collection(monkeypatch) -> None:
+    """Collector failures should explain why fallback was used in the console."""
+    captured_messages: list[str] = []
+    monkeypatch.setattr(app, "load_app_config", lambda: {"project_name": "NordSec", "version": "0.2.0", "default_mode": "windows"})
+    monkeypatch.setattr(app, "bootstrap_project", lambda perform_full_checks=True: _bootstrap_status())
+    monkeypatch.setattr(
+        app,
+        "collect_windows_data",
+        lambda mode, **kwargs: {
+            "platform": "windows",
+            "mode": mode,
+            "success": False,
+            "missing_outputs": ["windows_identity.csv"],
+            "expected_outputs": {"windows_identity": "data/collected/windows_identity.csv"},
+            "command": {"returncode": 1, "stderr_summary": "Access is denied."},
+            "reason": "access denied; run PowerShell as Administrator",
+            "output_statuses": {
+                "windows_identity": {
+                    "status": "failed",
+                    "reason": "access denied; run PowerShell as Administrator",
+                    "path": "data/collected/windows_identity.csv",
+                }
+            },
+        },
+    )
+    monkeypatch.setattr(app, "collect_linux_data", lambda mode, **kwargs: (_ for _ in ()).throw(AssertionError("linux collector should not run for windows selection")))
+    monkeypatch.setattr(
+        app,
+        "collect_fallback_data",
+        lambda mode: {
+            "mode": mode,
+            "fallback_activated": True,
+            "fallback_reason": "Primary collector output was incomplete.",
+            "used_files": {"windows_identity": {"path": "tests/mockdata/windows_identity.csv"}},
+            "missing_files": [],
+            "no_data_found": False,
+            "searched_directories": ["data/collected", "data/incoming"],
+            "sources": {},
+            "payloads": {},
+        },
+    )
+    monkeypatch.setattr(app, "run_identity_risk_engine", lambda mode, data_paths, run_id: _mock_analysis_result(run_id, mode))
+    monkeypatch.setattr(app, "write_reports", lambda analysis_result: _mock_report_paths())
+    monkeypatch.setattr(app, "print_message", lambda message: captured_messages.append(message))
+
+    exit_code = app.main(["--mode", "windows", "--no-bootstrap"], input_func=lambda _: "windows")
+
+    assert exit_code == 0
+    assert any("Fallback used: Yes." in message and "Primary collector output was incomplete." in message for message in captured_messages)
