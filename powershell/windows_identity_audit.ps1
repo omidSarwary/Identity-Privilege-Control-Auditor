@@ -94,6 +94,7 @@ function Write-RecordsCsv {
     #>
     param(
         [Parameter(Mandatory = $true)]
+        [AllowEmptyCollection()]
         [object[]]$InputObject,
 
         [Parameter(Mandatory = $true)]
@@ -103,12 +104,104 @@ function Write-RecordsCsv {
         [string[]]$Headers
     )
 
-    if (-not $InputObject -or $InputObject.Count -eq 0) {
-        Set-Content -Path $Path -Value ($Headers -join ',') -Encoding UTF8
+    $writeStarted = Get-Date
+    try {
+        if (-not $InputObject -or $InputObject.Count -eq 0) {
+            Set-Content -Path $Path -Value ($Headers -join ',') -Encoding UTF8
+        }
+        else {
+            $InputObject | Export-Csv -LiteralPath $Path -NoTypeInformation -Encoding UTF8
+        }
+    }
+    catch {
+        Write-Log -Level 'ERROR' -Message ("CSV export failed for {0}: {1}" -f $Path, $_.Exception.Message)
+        throw
+    }
+
+    if (-not (Test-Path -LiteralPath $Path)) {
+        $message = "CSV export did not create expected file: $Path"
+        Write-Log -Level 'ERROR' -Message $message
+        throw $message
+    }
+
+    $writtenFile = Get-Item -LiteralPath $Path -ErrorAction Stop
+    if ($writtenFile.LastWriteTime -lt $writeStarted.AddSeconds(-2)) {
+        $message = "CSV export did not update expected file in this run: $Path"
+        Write-Log -Level 'ERROR' -Message $message
+        throw $message
+    }
+
+    Write-Log -Level 'INFO' -Message ("CSV export completed: {0}" -f $Path)
+}
+
+function ConvertTo-LocalAdminUserName {
+    <#
+    .SYNOPSIS
+        Normalize an administrator group member into a local username.
+
+    .DESCRIPTION
+        Accepts names returned by Get-LocalGroupMember, ADSI, or net.exe. SID
+        values are logged and skipped because the current CSV schema stores
+        usernames, not unresolved security identifiers.
+    #>
+    param(
+        [string]$RawName,
+
+        [string]$Source
+    )
+
+    if ([string]::IsNullOrWhiteSpace($RawName)) {
+        return $null
+    }
+
+    $candidate = $RawName.Trim()
+    if ($candidate -match '^S-\d-\d+(-\d+)+$') {
+        Write-Log -Level 'WARNING' -Message ("Unresolved administrator SID skipped from {0}: {1}" -f $Source, $candidate)
+        return $null
+    }
+
+    if ($candidate -like 'WinNT://*') {
+        $candidate = ($candidate -split '/')[-1]
+    }
+
+    if ($candidate -like '*\*') {
+        $candidate = ($candidate -split '\\')[-1]
+    }
+
+    if ([string]::IsNullOrWhiteSpace($candidate)) {
+        return $null
+    }
+
+    return $candidate.Trim()
+}
+
+function Add-AdminMemberCandidate {
+    <#
+    .SYNOPSIS
+        Add one normalized administrator name to a lookup table.
+
+    .DESCRIPTION
+        Keeps administrator membership de-duplicated case-insensitively so
+        different fallback methods can be combined safely.
+    #>
+    param(
+        [Parameter(Mandatory = $true)]
+        [hashtable]$Lookup,
+
+        [string]$RawName,
+
+        [string]$Source
+    )
+
+    $name = ConvertTo-LocalAdminUserName -RawName $RawName -Source $Source
+    if ($null -eq $name) {
         return
     }
 
-    $InputObject | Export-Csv -LiteralPath $Path -NoTypeInformation -Encoding UTF8
+    $key = $name.ToLowerInvariant()
+    if (-not $Lookup.ContainsKey($key)) {
+        $Lookup[$key] = $name
+    }
 }
 
 function Resolve-PositiveIntValue {
@@ -241,31 +334,30 @@ function Get-LocalIdentityData {
         return @()
     }
 
-    $localUsers = @()
-    $adminMembers = @()
     try {
         $localUsers = Get-LocalUser -ErrorAction Stop
-        $adminMembers = Get-LocalGroupMember -Group 'Administrators' -ErrorAction Stop
     }
     catch {
         $message = $_.Exception.Message
-        if ($message -match 'Access is denied|permission denied') {
-            Write-Log -Level 'WARNING' -Message "The local Administrators group could not be read. Administrator rights may be required. $message"
-        }
-        else {
-            Write-Log -Level 'WARNING' -Message "The local Administrators group could not be read. $message"
+        Write-Log -Level 'WARNING' -Message "Local Windows users could not be read. Administrator rights may be required. $message"
+        return @()
+    }
+
+    $adminLookup = @{}
+    foreach ($adminName in @($script:LocalAdminMembers)) {
+        if (-not [string]::IsNullOrWhiteSpace($adminName)) {
+            $adminLookup[$adminName.ToLowerInvariant()] = $true
         }
     }
 
-    $adminNames = @($adminMembers | ForEach-Object { $_.Name })
-
     $records = @($localUsers | ForEach-Object {
+        $username = [string]$_.Name
         [pscustomobject]@{
             ComputerName      = $env:COMPUTERNAME
             CollectionTime    = (Get-Date).ToUniversalTime().ToString('yyyy-MM-ddTHH:mm:ssZ')
-            Username          = $_.Name
+            Username          = $username
             Enabled           = [bool]$_.Enabled
-            IsLocalAdmin      = [bool]($adminNames -contains $_.Name)
+            IsLocalAdmin      = [bool]$adminLookup.ContainsKey($username.ToLowerInvariant())
             LastLogon         = if ($_.LastLogon) { $_.LastLogon.ToUniversalTime().ToString('yyyy-MM-ddTHH:mm:ssZ') } else { '' }
             Source            = 'local_user'
         }
@@ -324,16 +416,75 @@ function Get-LocalAdminMembers {
     }
 
     Write-Log -Level 'INFO' -Message 'Windows local administrator collection started.'
+    $memberLookup = @{}
+
     try {
-        $members = @(Get-LocalGroupMember -Group 'Administrators' -ErrorAction Stop | Select-Object -ExpandProperty Name)
-        Write-Log -Level 'INFO' -Message ("Windows local administrator collection completed: {0} member(s)." -f $members.Count)
-        return $members
+        $members = @(Get-LocalGroupMember -Group 'Administrators' -ErrorAction Stop)
+        foreach ($member in $members) {
+            Add-AdminMemberCandidate -Lookup $memberLookup -RawName ([string]$member.Name) -Source 'Get-LocalGroupMember'
+        }
+        Write-Log -Level 'INFO' -Message ("Windows local administrator collection completed with Get-LocalGroupMember: {0} member(s)." -f $memberLookup.Count)
     }
     catch {
         $message = $_.Exception.Message
-        Write-Log -Level 'WARNING' -Message "The local Administrators group could not be read. Administrator rights may be required. $message"
-        return @()
+        Write-Log -Level 'WARNING' -Message "Get-LocalGroupMember could not read the local Administrators group. Falling back to ADSI and net localgroup. $message"
+
+        try {
+            $adsiGroup = [ADSI]("WinNT://{0}/Administrators,group" -f $env:COMPUTERNAME)
+            $adsiMembers = @($adsiGroup.psbase.Invoke('Members'))
+            foreach ($member in $adsiMembers) {
+                $name = $null
+                try {
+                    $name = [string]$member.GetType().InvokeMember('Name', 'GetProperty', $null, $member, $null)
+                }
+                catch {
+                    try {
+                        $name = [string]$member.GetType().InvokeMember('ADsPath', 'GetProperty', $null, $member, $null)
+                    }
+                    catch {
+                        Write-Log -Level 'WARNING' -Message ("ADSI administrator member could not be resolved: {0}" -f $_.Exception.Message)
+                    }
+                }
+                Add-AdminMemberCandidate -Lookup $memberLookup -RawName $name -Source 'ADSI'
+            }
+            Write-Log -Level 'INFO' -Message ("ADSI administrator fallback returned {0} normalized member(s)." -f $memberLookup.Count)
+        }
+        catch {
+            Write-Log -Level 'WARNING' -Message ("ADSI administrator fallback failed: {0}" -f $_.Exception.Message)
+        }
+
+        try {
+            $netOutput = & net.exe localgroup Administrators 2>&1
+            $insideMembers = $false
+            foreach ($line in @($netOutput)) {
+                $text = [string]$line
+                if ($text -match '^-{3,}$') {
+                    $insideMembers = -not $insideMembers
+                    continue
+                }
+                if (-not $insideMembers) {
+                    continue
+                }
+                if ($text -match 'The command completed successfully|Kommandot slutfördes') {
+                    break
+                }
+                Add-AdminMemberCandidate -Lookup $memberLookup -RawName $text -Source 'net localgroup'
+            }
+            Write-Log -Level 'INFO' -Message ("net localgroup administrator fallback returned {0} normalized member(s)." -f $memberLookup.Count)
+        }
+        catch {
+            Write-Log -Level 'WARNING' -Message ("net localgroup administrator fallback failed: {0}" -f $_.Exception.Message)
+        }
     }
+
+    $resolvedMembers = @($memberLookup.Values | Sort-Object)
+    if ($resolvedMembers.Count -eq 0) {
+        Write-Log -Level 'WARNING' -Message 'No local administrator members could be resolved from any collection method.'
+    }
+    else {
+        Write-Log -Level 'INFO' -Message ("Windows local administrator collection completed: {0} resolved member(s)." -f $resolvedMembers.Count)
+    }
+    return $resolvedMembers
 }
 
 function Get-WindowsSecurityEvents {
@@ -485,6 +636,7 @@ function Export-IdentityCsv {
     #>
     param(
         [Parameter(Mandatory = $true)]
+        [AllowEmptyCollection()]
         [object[]]$InputObject
     )
 
@@ -502,6 +654,7 @@ function Export-EventsCsv {
     #>
     param(
         [Parameter(Mandatory = $true)]
+        [AllowEmptyCollection()]
         [object[]]$InputObject
     )
 
@@ -519,6 +672,7 @@ function Export-PolicyCsv {
     #>
     param(
         [Parameter(Mandatory = $true)]
+        [AllowEmptyCollection()]
         [object[]]$InputObject
     )
 
