@@ -1,0 +1,24 @@
+mode: production
+selected_platform: linux
+analysis_scope: Linux collector data + manual Windows evidence
+manual_cross_evidence_included: True
+manual_cross_evidence_platform: windows
+fallback_used: False
+finding_count: 14
+summary_counts: {'CRITICAL': 7, 'HIGH': 6, 'LOW': 1, 'MEDIUM': 0}
+
+findings:
+- Administrator | CRITICAL | Unapproved Windows administrators member | source= windows_identity.csv
+- Administrator | HIGH | Inactive account with privileges | source= normalized_identities
+- Administrator | CRITICAL | Disabled account shows authentication activity | source= events
+- Administrator | CRITICAL | Privileged account with repeated failed logins | source= events
+- disabled_user | CRITICAL | Disabled account shows authentication activity | source= events
+- hacker | CRITICAL | Unapproved Linux sudo user | source= approved_linux_sudoers.csv
+- hacker | HIGH | Inactive account with privileges | source= normalized_identities
+- helpdesk_user | LOW | Normal user with a single failed login | source= events
+- inactive_priv_user | CRITICAL | Unapproved Windows administrators member | source= windows_identity.csv
+- inactive_priv_user | HIGH | Inactive account with privileges | source= normalized_identities
+- secureadmin | HIGH | Inactive account with privileges | source= normalized_identities
+- unauthorized_admin | CRITICAL | Unapproved Windows administrators member | source= windows_identity.csv
+- system_policy | HIGH | Windows Firewall disabled | source= windows_policy.csv
+- 198.51.100.25 | HIGH | Multiple failed logins from the same IP address | source= events

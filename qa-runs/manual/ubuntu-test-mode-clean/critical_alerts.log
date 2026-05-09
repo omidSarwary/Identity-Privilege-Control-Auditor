@@ -1,0 +1,5 @@
+CRITICAL | disabled_user | Disabled account shows authentication activity | events | A disabled account has recent login activity.
+CRITICAL | inactive_priv_user | Unapproved Windows administrators member | windows_identity.csv | The account is a local administrator but is not listed in the approved baseline.
+CRITICAL | svc_archive | Unapproved Linux sudo user | approved_linux_sudoers.csv | The account has sudo privileges but is not listed in the approved baseline.
+CRITICAL | unauthorized_admin | Unapproved Windows administrators member | windows_identity.csv | The account is a local administrator but is not listed in the approved baseline.
+CRITICAL | unauthorized_sudo | Unapproved Linux sudo user | approved_linux_sudoers.csv | The account has sudo privileges but is not listed in the approved baseline.

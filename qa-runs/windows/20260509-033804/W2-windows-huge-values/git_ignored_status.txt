@@ -1,0 +1,27 @@
+﻿On branch main
+Your branch is up to date with 'origin/main'.
+
+Changes not staged for commit:
+  (use "git add/rm <file>..." to update what will be committed)
+  (use "git restore <file>..." to discard changes in working directory)
+	deleted:    data/alerts/.gitkeep
+	deleted:    data/collected/.gitkeep
+	deleted:    reports/evidence/run_outputs/.gitkeep
+	deleted:    reports/evidence/sample_logs/.gitkeep
+	deleted:    reports/evidence/screenshots/.gitkeep
+
+Ignored files:
+  (use "git add -f <file>..." to include in what will be committed)
+	data/alerts/alerts.json
+	data/collected/windows_events.csv
+	data/collected/windows_identity.csv
+	data/collected/windows_policy.csv
+	logs/anomalies.log
+	logs/critical_alerts.log
+	logs/python_engine.log
+	logs/windows_audit.log
+	reports/executive_summary.txt
+	reports/final_identity_risk_report.json
+	reports/final_identity_risk_report.txt
+
+no changes added to commit (use "git add" and/or "git commit -a")

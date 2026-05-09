@@ -1,0 +1,3 @@
+username,reason,owner,approved_until
+Omidlab,Primary Windows lab administrator,NordSec Lab,2026-12-31
+Administrator,Built-in disabled administrator account,NordSec Windows Baseline,2026-12-31

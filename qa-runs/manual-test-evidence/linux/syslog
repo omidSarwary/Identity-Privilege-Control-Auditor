@@ -1,0 +1,13 @@
+May  8 02:58:02 ubuntu-finance-01 systemd[1]: Started OpenSSH server daemon.
+May  8 02:58:05 ubuntu-finance-01 sshd[1720]: Server listening on 0.0.0.0 port 22.
+May  8 03:00:01 ubuntu-finance-01 CRON[1735]: (root) CMD (/usr/local/bin/rotate-audit-logs.sh)
+May  8 03:01:44 ubuntu-finance-01 auditd[1750]: Audit daemon rotating log files
+May  8 03:04:11 ubuntu-finance-01 kernel: [UFW BLOCK] IN=eth0 SRC=203.0.113.45 DST=10.10.10.15 PROTO=TCP DPT=22
+May  8 03:10:11 ubuntu-finance-01 sshd[1842]: message repeated 5 times: Failed SSH authentication attempts from 203.0.113.45
+May  8 03:11:10 ubuntu-finance-01 sshd[1851]: message repeated 7 times: Failed SSH root authentication attempts from 198.51.100.77
+May  8 03:13:44 ubuntu-finance-01 systemd[1]: Started Session 448 of user bio.
+May  8 03:14:02 ubuntu-finance-01 sudo: bio executed privileged command: systemctl restart auditd
+May  8 03:14:45 ubuntu-finance-01 sudo: unauthorized_sudo executed privileged command: useradd tempadmin
+May  8 03:16:55 ubuntu-finance-01 rsyslogd[1011]: action 'action-7-builtin:omfile' resumed
+May  8 03:18:14 ubuntu-finance-01 auditd[1750]: Warning: audit backlog limit exceeded
+May  8 03:20:00 ubuntu-finance-01 CRON[1912]: (deploy) CMD (/opt/scripts/deploy_cleanup.sh)

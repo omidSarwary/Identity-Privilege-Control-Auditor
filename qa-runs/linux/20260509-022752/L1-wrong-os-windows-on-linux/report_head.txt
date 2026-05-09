@@ -1,0 +1,73 @@
+NORDSEC IDENTITY & PRIVILEGE CONTROL AUDIT REPORT
+Run ID: 20260509-002817
+Date: 2026-05-09 00:28:17 UTC
+Mode: production
+Platform selected: windows
+Analysis scope: Windows collector data only
+Manual cross-platform evidence included: No
+Manual cross-platform evidence platform: none
+Manual evidence files found:
+- None
+Data sources used:
+- linux_identity: not selected, path=n/a, source=not_selected
+- linux_policy: not selected, path=n/a, source=not_selected
+- windows_identity: missing_required, needs review, path=n/a
+- windows_events: loaded, valid, path=/home/omidlab/nordsec-clean-test/Identity-Privilege-Control-Auditor/logdata/windows/security_events.csv, source=fallback
+- windows_policy: missing_required, needs review, path=n/a
+- approved_linux_sudoers: loaded, valid, path=/home/omidlab/nordsec-clean-test/Identity-Privilege-Control-Auditor/config/baselines/approved_linux_sudoers.csv
+- approved_windows_admins: loaded, valid, path=/home/omidlab/nordsec-clean-test/Identity-Privilege-Control-Auditor/config/baselines/approved_windows_admins.csv
+- approved_service_accounts: loaded, valid, path=/home/omidlab/nordsec-clean-test/Identity-Privilege-Control-Auditor/config/baselines/approved_service_accounts.csv
+- expected_policy_baseline: loaded, valid, path=/home/omidlab/nordsec-clean-test/Identity-Privilege-Control-Auditor/config/baselines/expected_policy_baseline.json
+- linux_auth_events: not selected, path=n/a, source=collector
+- linux_auth_log: not selected, path=n/a, source=not_selected
+Fallback used: Yes
+
+1. Executive Summary
+Total findings: 1
+Critical: 0
+High: 0
+Medium: 1
+Low: 0
+
+2. Data Quality Summary
+- No warnings recorded.
+Errors:
+- windows_identity: windows_identity: file not found
+- windows_policy: windows_policy: file not found
+
+3. Critical Findings
+- None observed.
+
+4. High Findings
+- None observed.
+
+5. Medium Findings
+- Identity: system_policy
+  Finding: Partial Windows evidence
+  Reason: Windows evidence was partial: windows_events was available, but windows_identity, windows_policy was missing.
+  Source: data_quality
+  Recommended follow-up: Re-collect or supply the missing evidence sources before making final access decisions.
+
+6. Low Findings
+- None observed.
+
+7. Identity Risk Table
+- system_policy | risk=MEDIUM | findings=1 | sources=data_quality
+
+8. Policy Deviations
+- Identity: system_policy
+  Finding: Partial Windows evidence
+  Reason: Windows evidence was partial: windows_events was available, but windows_identity, windows_policy was missing.
+  Source: data_quality
+  Recommended follow-up: Re-collect or supply the missing evidence sources before making final access decisions.
+
+9. Log/Event Correlations
+- None observed.
+
+10. Recommended Follow-up
+Re-collect or supply the missing evidence sources before making final access decisions.
+
+11. Limitations
+Errors:
+- windows_identity: windows_identity: file not found
+- windows_policy: windows_policy: file not found

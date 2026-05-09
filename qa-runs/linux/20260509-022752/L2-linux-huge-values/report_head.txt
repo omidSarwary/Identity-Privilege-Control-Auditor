@@ -1,0 +1,77 @@
+NORDSEC IDENTITY & PRIVILEGE CONTROL AUDIT REPORT
+Run ID: 20260509-003116
+Date: 2026-05-09 00:31:16 UTC
+Mode: production
+Platform selected: linux
+Analysis scope: Linux collector data only
+Manual cross-platform evidence included: No
+Manual cross-platform evidence platform: none
+Manual evidence files found:
+- None
+Data sources used:
+- linux_identity: loaded, valid, path=/home/omidlab/nordsec-clean-test/Identity-Privilege-Control-Auditor/data/collected/linux_identity.json, source=collector
+- linux_policy: loaded, valid, path=/home/omidlab/nordsec-clean-test/Identity-Privilege-Control-Auditor/data/collected/linux_policy.json, source=collector
+- windows_identity: not selected, path=n/a, source=not_selected
+- windows_events: not selected, path=n/a, source=not_selected
+- windows_policy: not selected, path=n/a, source=not_selected
+- approved_linux_sudoers: loaded, valid, path=/home/omidlab/nordsec-clean-test/Identity-Privilege-Control-Auditor/config/baselines/approved_linux_sudoers.csv
+- approved_windows_admins: loaded, valid, path=/home/omidlab/nordsec-clean-test/Identity-Privilege-Control-Auditor/config/baselines/approved_windows_admins.csv
+- approved_service_accounts: loaded, valid, path=/home/omidlab/nordsec-clean-test/Identity-Privilege-Control-Auditor/config/baselines/approved_service_accounts.csv
+- expected_policy_baseline: loaded, valid, path=/home/omidlab/nordsec-clean-test/Identity-Privilege-Control-Auditor/config/baselines/expected_policy_baseline.json
+- linux_auth_events: loaded, valid, path=/home/omidlab/nordsec-clean-test/Identity-Privilege-Control-Auditor/data/collected/linux_identity.json, source=collector, collector_source=collector
+- linux_auth_log: not selected, path=n/a, source=not_selected
+Fallback used: No
+
+1. Executive Summary
+Total findings: 3
+Critical: 1
+High: 2
+Medium: 0
+Low: 0
+
+2. Data Quality Summary
+- No warnings recorded.
+- No errors recorded.
+
+3. Critical Findings
+- Identity: hacker
+  Finding: Unapproved Linux sudo user
+  Reason: The account has sudo privileges but is not listed in the approved baseline.
+  Source: approved_linux_sudoers.csv
+  Recommended follow-up: Review sudo access against the approved baseline.
+
+4. High Findings
+- Identity: hacker
+  Finding: Inactive account with privileges
+  Reason: The account is inactive but still has privileged access.
+  Source: normalized_identities
+  Recommended follow-up: Review whether the account should be disabled or have privileges removed.
+
+- Identity: secureadmin
+  Finding: Inactive account with privileges
+  Reason: The account is inactive but still has privileged access.
+  Source: normalized_identities
+  Recommended follow-up: Review whether the account should be disabled or have privileges removed.
+
+5. Medium Findings
+- None observed.
+
+6. Low Findings
+- None observed.
+
+7. Identity Risk Table
+- hacker | risk=CRITICAL | findings=2 | sources=approved_linux_sudoers.csv, normalized_identities
+- secureadmin | risk=HIGH | findings=1 | sources=normalized_identities
+
+8. Policy Deviations
+- None observed.
+
+9. Log/Event Correlations
+- None observed.
+
+10. Recommended Follow-up
+Review sudo access against the approved baseline.
+Review whether the account should be disabled or have privileges removed.
+
+11. Limitations
+- No data-quality limitations were recorded.

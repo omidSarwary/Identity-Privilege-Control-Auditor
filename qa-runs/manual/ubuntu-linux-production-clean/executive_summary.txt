@@ -1,0 +1,13 @@
+NORDSEC IDENTITY & PRIVILEGE CONTROL EXECUTIVE SUMMARY
+Run ID: 20260509-000501
+Mode: production
+Total findings: 3
+Critical: 1
+High: 2
+Medium: 0
+Low: 0
+
+Top findings:
+- hacker: Unapproved Linux sudo user
+- hacker: Inactive account with privileges
+- secureadmin: Inactive account with privileges

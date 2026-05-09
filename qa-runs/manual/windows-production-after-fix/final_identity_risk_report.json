@@ -1,0 +1,68 @@
+{
+  "analysis_scope": "Windows collector data only",
+  "fallback_reason": "Platform collectors produced usable outputs.",
+  "fallback_used": false,
+  "findings": [
+    {
+      "finding": "Unapproved Windows administrators member",
+      "identity": "eviladmin",
+      "reason": "The account is a local administrator but is not listed in the approved baseline.",
+      "recommended_action": "Review local administrator membership against the approved baseline.",
+      "risk_level": "CRITICAL",
+      "source": "windows_identity.csv"
+    },
+    {
+      "finding": "Windows execution policy differs from the approved baseline",
+      "identity": "system_policy",
+      "reason": "The readable Windows execution policy does not match the approved baseline.",
+      "recommended_action": "Review the policy against the approved baseline.",
+      "risk_level": "MEDIUM",
+      "source": "windows_policy.csv"
+    }
+  ],
+  "manual_cross_evidence_files": [],
+  "manual_cross_evidence_included": false,
+  "manual_cross_evidence_platform": "none",
+  "manual_cross_evidence_warnings": [],
+  "mode": "production",
+  "run_id": "20260509-013437",
+  "selected_platform": "windows",
+  "summary": {
+    "counts": {
+      "CRITICAL": 1,
+      "HIGH": 0,
+      "LOW": 0,
+      "MEDIUM": 1
+    },
+    "identities": [
+      {
+        "findings": [
+          {
+            "finding": "Unapproved Windows administrators member",
+            "identity": "eviladmin",
+            "reason": "The account is a local administrator but is not listed in the approved baseline.",
+            "recommended_action": "Review local administrator membership against the approved baseline.",
+            "risk_level": "CRITICAL",
+            "source": "windows_identity.csv"
+          }
+        ],
+        "identity": "eviladmin",
+        "risk_level": "CRITICAL"
+      },
+      {
+        "findings": [
+          {
+            "finding": "Windows execution policy differs from the approved baseline",
+            "identity": "system_policy",
+            "reason": "The readable Windows execution policy does not match the approved baseline.",
+            "recommended_action": "Review the policy against the approved baseline.",
+            "risk_level": "MEDIUM",
+            "source": "windows_policy.csv"
+          }
+        ],
+        "identity": "system_policy",
+        "risk_level": "MEDIUM"
+      }
+    ]
+  }
+}

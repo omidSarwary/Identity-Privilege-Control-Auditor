@@ -1,0 +1,120 @@
+﻿NORDSEC IDENTITY & PRIVILEGE CONTROL AUDIT REPORT
+Run ID: 20260509-014505
+Date: 2026-05-09 01:45:05 UTC
+Mode: production
+Platform selected: windows
+Analysis scope: Windows collector data + manual Linux evidence
+Manual cross-platform evidence included: Yes
+Manual cross-platform evidence platform: linux
+Manual evidence files found:
+- C:\nordsec-clean-test\Identity-Privilege-Control-Auditor\data\incoming\linux_identity.json
+- C:\nordsec-clean-test\Identity-Privilege-Control-Auditor\data\incoming\linux_policy.json
+- C:\nordsec-clean-test\Identity-Privilege-Control-Auditor\logdata\linux\auth.log
+Data sources used:
+- linux_identity: loaded, valid, path=C:\nordsec-clean-test\Identity-Privilege-Control-Auditor\data\incoming\linux_identity.json, source=manual
+- linux_policy: invalid, needs review, path=C:\nordsec-clean-test\Identity-Privilege-Control-Auditor\data\incoming\linux_policy.json, source=manual
+- windows_identity: loaded, valid, path=C:\nordsec-clean-test\Identity-Privilege-Control-Auditor\data\collected\windows_identity.csv, source=collector
+- windows_events: loaded, valid, path=C:\nordsec-clean-test\Identity-Privilege-Control-Auditor\data\collected\windows_events.csv, source=collector
+- windows_policy: loaded, valid, path=C:\nordsec-clean-test\Identity-Privilege-Control-Auditor\data\collected\windows_policy.csv, source=collector
+- approved_linux_sudoers: loaded, valid, path=C:\nordsec-clean-test\Identity-Privilege-Control-Auditor\config\baselines\approved_linux_sudoers.csv
+- approved_windows_admins: loaded, valid, path=C:\nordsec-clean-test\Identity-Privilege-Control-Auditor\config\baselines\approved_windows_admins.csv
+- approved_service_accounts: loaded, valid, path=C:\nordsec-clean-test\Identity-Privilege-Control-Auditor\config\baselines\approved_service_accounts.csv
+- expected_policy_baseline: loaded, valid, path=C:\nordsec-clean-test\Identity-Privilege-Control-Auditor\config\baselines\expected_policy_baseline.json
+- linux_auth_events: loaded, valid, path=C:\nordsec-clean-test\Identity-Privilege-Control-Auditor\data\incoming\linux_identity.json, source=collector, collector_source=collector
+- linux_auth_log: loaded, valid, path=C:\nordsec-clean-test\Identity-Privilege-Control-Auditor\logdata\linux\auth.log, source=manual
+Fallback used: No
+
+1. Executive Summary
+Total findings: 8
+Critical: 5
+High: 2
+Medium: 1
+Low: 0
+
+2. Data Quality Summary
+Warnings:
+- Manual Linux evidence file appears older than this run and may be stale: C:\nordsec-clean-test\Identity-Privilege-Control-Auditor\data\incoming\linux_identity.json
+- Manual Linux evidence file appears older than this run and may be stale: C:\nordsec-clean-test\Identity-Privilege-Control-Auditor\data\incoming\linux_policy.json
+- Manual Linux evidence file appears older than this run and may be stale: C:\nordsec-clean-test\Identity-Privilege-Control-Auditor\logdata\linux\auth.log
+Errors:
+- linux_policy: linux_policy.json was found but did not contain the expected policy.ssh_policy mapping.
+
+3. Critical Findings
+- Identity: bio
+  Finding: Unapproved Linux sudo user
+  Reason: The account has sudo privileges but is not listed in the approved baseline.
+  Source: approved_linux_sudoers.csv
+  Recommended follow-up: Review sudo access against the approved baseline.
+
+- Identity: disabled_user
+  Finding: Disabled account shows authentication activity
+  Reason: A disabled account has recent login activity.
+  Source: events
+  Recommended follow-up: Review the account and investigate the source of the activity.
+
+- Identity: eviladmin
+  Finding: Unapproved Windows administrators member
+  Reason: The account is a local administrator but is not listed in the approved baseline.
+  Source: windows_identity.csv
+  Recommended follow-up: Review local administrator membership against the approved baseline.
+
+- Identity: svc_archive
+  Finding: Unapproved Linux sudo user
+  Reason: The account has sudo privileges but is not listed in the approved baseline.
+  Source: approved_linux_sudoers.csv
+  Recommended follow-up: Review sudo access against the approved baseline.
+
+- Identity: unauthorized_sudo
+  Finding: Unapproved Linux sudo user
+  Reason: The account has sudo privileges but is not listed in the approved baseline.
+  Source: approved_linux_sudoers.csv
+  Recommended follow-up: Review sudo access against the approved baseline.
+
+4. High Findings
+- Identity: svc_archive
+  Finding: Inactive account with privileges
+  Reason: The account is inactive but still has privileged access.
+  Source: normalized_identities
+  Recommended follow-up: Review whether the account should be disabled or have privileges removed.
+
+- Identity: 203.0.113.45
+  Finding: Multiple failed logins from the same IP address
+  Reason: Repeated failed logins were observed from a single network source.
+  Source: events
+  Recommended follow-up: Review the source address and associated authentication attempts.
+
+5. Medium Findings
+- Identity: system_policy
+  Finding: Windows execution policy differs from the approved baseline
+  Reason: The readable Windows execution policy does not match the approved baseline.
+  Source: windows_policy.csv
+  Recommended follow-up: Review the policy against the approved baseline.
+
+6. Low Findings
+- None observed.
+
+7. Identity Risk Table
+- bio | risk=CRITICAL | findings=1 | sources=approved_linux_sudoers.csv
+- disabled_user | risk=CRITICAL | findings=1 | sources=events
+- eviladmin | risk=CRITICAL | findings=1 | sources=windows_identity.csv
+- svc_archive | risk=CRITICAL | findings=2 | sources=approved_linux_sudoers.csv, normalized_identities
+- unauthorized_sudo | risk=CRITICAL | findings=1 | sources=approved_linux_sudoers.csv
+- system_policy | risk=MEDIUM | findings=1 | sources=windows_policy.csv
+- 203.0.113.45 | risk=HIGH | findings=1 | sources=events
+
+8. Policy Deviations
+- Identity: system_policy
+  Finding: Windows execution policy differs from the approved baseline
+  Reason: The readable Windows execution policy does not match the approved baseline.
+  Source: windows_policy.csv
+  Recommended follow-up: Review the policy against the approved baseline.
+
+9. Log/Event Correlations
+- Identity: disabled_user
+  Finding: Disabled account shows authentication activity
+  Reason: A disabled account has recent login activity.
+  Source: events
+  Recommended follow-up: Review the account and investigate the source of the activity.
+- Identity: 203.0.113.45
+  Finding: Multiple failed logins from the same IP address
+  Reason: Repeated failed logins were observed from a single network source.

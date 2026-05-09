@@ -1,0 +1,50 @@
+============================================================
+ NordSec Identity & Privilege Control Auditor
+ Version: 0.2.0
+ Mode: interactive
+
+ This tool performs read-only security validation.
+ It does not modify accounts, privileges, or policy state.
+============================================================
+Select platform [linux/windows/test]: Linux log lookback hours [24]: Linux max events/lines [1000]: Hybrid logging: structured outputs will later be written to data/collected/, manual exports can be copied into data/incoming/, and raw logs may be placed under logdata/linux/ or logdata/windows/. Linux mode selected. Linux logs will be collected automatically, while Windows logs should be copied manually into data/incoming/ or logdata/windows/. If logs from further back in time are needed, export them manually and place them in data/incoming/ or logdata/linux/.
+Production collection may require sudo/root access to read protected logs, SSH config, or file permissions.
+Selected platform: linux
+Do you want to include manually exported Windows evidence as well? [y/N]: Cross-platform manual evidence: not included.
+Analysis scope: Linux collector data only
+Collection window: 1 hours, max 100 events/lines
+[1/6] Environment checks started.
+[1/6] Environment checks completed.
+[2/6] Collecting Linux evidence.
+- Identity data: collected (output file created)
+- Policy data: collected (output file created)
+Linux collector result: success
+[3/6] Fallback check.
+Fallback used: No. Reason: Fallback not used because the primary collector outputs were used.
+Collected files in use: linux_identity=/home/omidlab/nordsec-clean-test/Identity-Privilege-Control-Auditor/data/collected/linux_identity.json, linux_policy=/home/omidlab/nordsec-clean-test/Identity-Privilege-Control-Auditor/data/collected/linux_policy.json
+[4/6] Analysis started.
+Analysis data source: collector data.
+[4/6] Analysis completed.
+[5/6] Report generation started.
+Reports generated.
+- text report: generated (/home/omidlab/nordsec-clean-test/Identity-Privilege-Control-Auditor/reports/final_identity_risk_report.txt)
+- executive summary: generated (/home/omidlab/nordsec-clean-test/Identity-Privilege-Control-Auditor/reports/executive_summary.txt)
+- JSON report: generated (/home/omidlab/nordsec-clean-test/Identity-Privilege-Control-Auditor/reports/final_identity_risk_report.json)
+- alerts: generated (/home/omidlab/nordsec-clean-test/Identity-Privilege-Control-Auditor/data/alerts/alerts.json)
+- critical alerts: generated (/home/omidlab/nordsec-clean-test/Identity-Privilege-Control-Auditor/logs/critical_alerts.log)
+Final summary
+Platform: linux
+Run ID: 20260509-003215
+Findings: 3
+Critical: 1
+High: 2
+Medium: 0
+Low: 0
+Analysis source: collector data
+Fallback used: No
+Reports:
+- text_report: /home/omidlab/nordsec-clean-test/Identity-Privilege-Control-Auditor/reports/final_identity_risk_report.txt
+- executive_summary: /home/omidlab/nordsec-clean-test/Identity-Privilege-Control-Auditor/reports/executive_summary.txt
+- json_report: /home/omidlab/nordsec-clean-test/Identity-Privilege-Control-Auditor/reports/final_identity_risk_report.json
+- alerts_json: /home/omidlab/nordsec-clean-test/Identity-Privilege-Control-Auditor/data/alerts/alerts.json
+- critical_alerts_log: /home/omidlab/nordsec-clean-test/Identity-Privilege-Control-Auditor/logs/critical_alerts.log
+[6/6] Safe exit.

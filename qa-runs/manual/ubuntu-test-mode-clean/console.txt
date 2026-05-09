@@ -1,0 +1,48 @@
+============================================================
+ NordSec Identity & Privilege Control Auditor
+ Version: 0.2.0
+ Mode: test
+
+ This tool performs read-only security validation.
+ It does not modify accounts, privileges, or policy state.
+============================================================
+Hybrid logging: structured outputs will later be written to data/collected/, manual exports can be copied into data/incoming/, and raw logs may be placed under logdata/linux/ or logdata/windows/. Test mode selected. Mock data will be used if available, and live system logs will not be modified.
+Test mode uses mockdata and does not require elevated privileges.
+Selected platform: test
+Cross-platform manual evidence: not included.
+Analysis scope: Test mockdata pipeline
+Collection window: mockdata only
+[1/6] Environment checks started.
+[1/6] Environment checks completed.
+[2/6] Collecting Test evidence.
+Test mode uses mockdata; platform collectors are skipped.
+[3/6] Fallback check.
+Fallback used: Yes. Reason: Fallback used because test mode uses mockdata.
+Fallback found usable files: linux_identity=/home/omidlab/nordsec-clean-test/Identity-Privilege-Control-Auditor/tests/mockdata/linux_identity.json, linux_policy=/home/omidlab/nordsec-clean-test/Identity-Privilege-Control-Auditor/tests/mockdata/linux_policy.json, windows_identity=/home/omidlab/nordsec-clean-test/Identity-Privilege-Control-Auditor/tests/mockdata/windows_identity.csv, windows_events=/home/omidlab/nordsec-clean-test/Identity-Privilege-Control-Auditor/tests/mockdata/windows_events.csv, windows_policy=/home/omidlab/nordsec-clean-test/Identity-Privilege-Control-Auditor/tests/mockdata/windows_policy.csv, auth_log=/home/omidlab/nordsec-clean-test/Identity-Privilege-Control-Auditor/tests/mockdata/auth.log
+[4/6] Analysis started.
+Analysis data source: fallback data.
+[4/6] Analysis completed.
+[5/6] Report generation started.
+Reports generated.
+- text report: generated (/home/omidlab/nordsec-clean-test/Identity-Privilege-Control-Auditor/reports/final_identity_risk_report.txt)
+- executive summary: generated (/home/omidlab/nordsec-clean-test/Identity-Privilege-Control-Auditor/reports/executive_summary.txt)
+- JSON report: generated (/home/omidlab/nordsec-clean-test/Identity-Privilege-Control-Auditor/reports/final_identity_risk_report.json)
+- alerts: generated (/home/omidlab/nordsec-clean-test/Identity-Privilege-Control-Auditor/data/alerts/alerts.json)
+- critical alerts: generated (/home/omidlab/nordsec-clean-test/Identity-Privilege-Control-Auditor/logs/critical_alerts.log)
+Final summary
+Platform: test
+Run ID: 20260508-233032
+Findings: 11
+Critical: 5
+High: 4
+Medium: 1
+Low: 1
+Analysis source: fallback data
+Fallback used: Yes
+Reports:
+- text_report: /home/omidlab/nordsec-clean-test/Identity-Privilege-Control-Auditor/reports/final_identity_risk_report.txt
+- executive_summary: /home/omidlab/nordsec-clean-test/Identity-Privilege-Control-Auditor/reports/executive_summary.txt
+- json_report: /home/omidlab/nordsec-clean-test/Identity-Privilege-Control-Auditor/reports/final_identity_risk_report.json
+- alerts_json: /home/omidlab/nordsec-clean-test/Identity-Privilege-Control-Auditor/data/alerts/alerts.json
+- critical_alerts_log: /home/omidlab/nordsec-clean-test/Identity-Privilege-Control-Auditor/logs/critical_alerts.log
+[6/6] Safe exit.

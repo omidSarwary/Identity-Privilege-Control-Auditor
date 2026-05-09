@@ -1,0 +1,147 @@
+2026-05-09 01:25:49 INFO app 20260508-232549 Program start
+2026-05-09 01:25:49 INFO app 20260508-232549 Collection window resolved: platform=test log_hours=24 max_events=1000
+2026-05-09 01:25:49 INFO app 20260508-232549 Platform selection resolved: test
+2026-05-09 01:25:49 INFO app 20260508-232549 Selected platform: test
+2026-05-09 01:25:49 INFO app 20260508-232549 Analysis scope resolved: Test mockdata pipeline manual_cross_evidence_included=False manual_cross_evidence_platform=none
+2026-05-09 01:25:49 INFO app 20260508-232549 Collection window resolved: platform=test mode=test log_hours=24 max_events=1000
+2026-05-09 01:25:49 INFO app 20260508-232549 Environment checks starting
+2026-05-09 01:25:49 INFO app 20260508-232549 requirements.txt lists 2 dependencies.
+2026-05-09 01:25:49 INFO app 20260508-232549 Virtual environment detected.
+2026-05-09 01:25:49 INFO app 20260508-232549 Environment checks completed
+2026-05-09 01:25:49 INFO app 20260508-232549 Analysis configuration loaded from /home/omidlab/nordsec-clean-test/Identity-Privilege-Control-Auditor/config/test_config.json
+2026-05-09 01:25:49 INFO app 20260508-232549 Evidence collection starting for platform=test mode=test
+2026-05-09 01:25:49 INFO app 20260508-232549 Collector phase completed with 0 result(s)
+2026-05-09 01:25:49 WARNING app 20260508-232549 Fallback collector activated because primary collector output was unavailable or incomplete.
+2026-05-09 01:25:49 INFO app 20260508-232549 Fallback search order: /home/omidlab/nordsec-clean-test/Identity-Privilege-Control-Auditor/tests/mockdata
+2026-05-09 01:25:49 INFO app 20260508-232549 Fallback source candidate found: /home/omidlab/nordsec-clean-test/Identity-Privilege-Control-Auditor/tests/mockdata/linux_identity.json
+2026-05-09 01:25:49 INFO app 20260508-232549 Fallback source validated as usable candidate: /home/omidlab/nordsec-clean-test/Identity-Privilege-Control-Auditor/tests/mockdata/linux_identity.json
+2026-05-09 01:25:49 INFO app 20260508-232549 Fallback source candidate found: /home/omidlab/nordsec-clean-test/Identity-Privilege-Control-Auditor/tests/mockdata/linux_policy.json
+2026-05-09 01:25:49 INFO app 20260508-232549 Fallback source validated as usable candidate: /home/omidlab/nordsec-clean-test/Identity-Privilege-Control-Auditor/tests/mockdata/linux_policy.json
+2026-05-09 01:25:49 INFO app 20260508-232549 Fallback source candidate found: /home/omidlab/nordsec-clean-test/Identity-Privilege-Control-Auditor/tests/mockdata/windows_identity.csv
+2026-05-09 01:25:49 INFO app 20260508-232549 Fallback source validated as usable candidate: /home/omidlab/nordsec-clean-test/Identity-Privilege-Control-Auditor/tests/mockdata/windows_identity.csv
+2026-05-09 01:25:49 INFO app 20260508-232549 Fallback source candidate found: /home/omidlab/nordsec-clean-test/Identity-Privilege-Control-Auditor/tests/mockdata/windows_events.csv
+2026-05-09 01:25:49 INFO app 20260508-232549 Fallback source validated as usable candidate: /home/omidlab/nordsec-clean-test/Identity-Privilege-Control-Auditor/tests/mockdata/windows_events.csv
+2026-05-09 01:25:49 INFO app 20260508-232549 Fallback source candidate found: /home/omidlab/nordsec-clean-test/Identity-Privilege-Control-Auditor/tests/mockdata/windows_policy.csv
+2026-05-09 01:25:49 INFO app 20260508-232549 Fallback source validated as usable candidate: /home/omidlab/nordsec-clean-test/Identity-Privilege-Control-Auditor/tests/mockdata/windows_policy.csv
+2026-05-09 01:25:49 INFO app 20260508-232549 Fallback source candidate found: /home/omidlab/nordsec-clean-test/Identity-Privilege-Control-Auditor/tests/mockdata/auth.log
+2026-05-09 01:25:49 INFO app 20260508-232549 Fallback source validated as usable candidate: /home/omidlab/nordsec-clean-test/Identity-Privilege-Control-Auditor/tests/mockdata/auth.log
+2026-05-09 01:25:49 INFO app 20260508-232549 Fallback files used: linux_identity=/home/omidlab/nordsec-clean-test/Identity-Privilege-Control-Auditor/tests/mockdata/linux_identity.json, linux_policy=/home/omidlab/nordsec-clean-test/Identity-Privilege-Control-Auditor/tests/mockdata/linux_policy.json, windows_identity=/home/omidlab/nordsec-clean-test/Identity-Privilege-Control-Auditor/tests/mockdata/windows_identity.csv, windows_events=/home/omidlab/nordsec-clean-test/Identity-Privilege-Control-Auditor/tests/mockdata/windows_events.csv, windows_policy=/home/omidlab/nordsec-clean-test/Identity-Privilege-Control-Auditor/tests/mockdata/windows_policy.csv, auth_log=/home/omidlab/nordsec-clean-test/Identity-Privilege-Control-Auditor/tests/mockdata/auth.log
+2026-05-09 01:25:49 INFO app 20260508-232549 Fallback files missing: none
+2026-05-09 01:25:49 INFO app 20260508-232549 Fallback result: Primary collector output was incomplete, so fallback sources were used.
+2026-05-09 01:25:49 INFO app 20260508-232549 Fallback summary: activated=True used_files=6 reason=Primary collector output was incomplete, so fallback sources were used.
+2026-05-09 01:25:49 INFO app 20260508-232549 Initializing identity risk engine for run_id=20260508-232549
+2026-05-09 01:25:49 INFO app 20260508-232549 Loading analysis inputs for mode=test
+2026-05-09 01:25:49 INFO app 20260508-232549 Completed loading analysis inputs
+2026-05-09 01:25:49 INFO app 20260508-232549 Starting analysis for run_id=20260508-232549 mode=test
+2026-05-09 01:25:49 INFO app 20260508-232549 Starting identity normalization
+2026-05-09 01:25:49 INFO app 20260508-232549 Completed identity normalization
+2026-05-09 01:25:49 INFO app 20260508-232549 Starting identity privilege correlation
+2026-05-09 01:25:49 INFO app 20260508-232549 Completed identity privilege correlation
+2026-05-09 01:25:49 INFO app 20260508-232549 Starting event-to-identity correlation
+2026-05-09 01:25:49 INFO app 20260508-232549 Completed event-to-identity correlation
+2026-05-09 01:25:49 INFO app 20260508-232549 Starting policy correlation
+2026-05-09 01:25:49 INFO app 20260508-232549 Completed policy correlation
+2026-05-09 01:25:49 INFO app 20260508-232549 Starting anomaly detection
+2026-05-09 01:25:49 INFO app 20260508-232549 Completed anomaly detection
+2026-05-09 01:25:49 INFO app 20260508-232549 Completed analysis for run_id=20260508-232549 with 11 findings
+2026-05-09 01:25:49 INFO app 20260508-232549 Identity risk engine finished for run_id=20260508-232549
+2026-05-09 01:25:49 INFO app 20260508-232549 Wrote 11 alerts and 5 critical findings
+2026-05-09 01:25:49 INFO app 20260508-232549 Wrote report artifacts: text_report=/home/omidlab/nordsec-clean-test/Identity-Privilege-Control-Auditor/reports/final_identity_risk_report.txt, executive_summary=/home/omidlab/nordsec-clean-test/Identity-Privilege-Control-Auditor/reports/executive_summary.txt, json_report=/home/omidlab/nordsec-clean-test/Identity-Privilege-Control-Auditor/reports/final_identity_risk_report.json, alerts_json=/home/omidlab/nordsec-clean-test/Identity-Privilege-Control-Auditor/data/alerts/alerts.json, critical_alerts_log=/home/omidlab/nordsec-clean-test/Identity-Privilege-Control-Auditor/logs/critical_alerts.log
+2026-05-09 01:25:49 INFO app 20260508-232549 Analysis completed with 11 findings across 7 identities
+2026-05-09 01:25:49 INFO app 20260508-232549 Report artifacts created: text_report=/home/omidlab/nordsec-clean-test/Identity-Privilege-Control-Auditor/reports/final_identity_risk_report.txt, executive_summary=/home/omidlab/nordsec-clean-test/Identity-Privilege-Control-Auditor/reports/executive_summary.txt, json_report=/home/omidlab/nordsec-clean-test/Identity-Privilege-Control-Auditor/reports/final_identity_risk_report.json, alerts_json=/home/omidlab/nordsec-clean-test/Identity-Privilege-Control-Auditor/data/alerts/alerts.json, critical_alerts_log=/home/omidlab/nordsec-clean-test/Identity-Privilege-Control-Auditor/logs/critical_alerts.log
+2026-05-09 01:25:49 INFO app 20260508-232549 [6/6] Safe exit.
+2026-05-09 01:30:32 INFO app 20260508-233032 Program start
+2026-05-09 01:30:32 INFO app 20260508-233032 Collection window resolved: platform=test log_hours=24 max_events=1000
+2026-05-09 01:30:32 INFO app 20260508-233032 Platform selection resolved: test
+2026-05-09 01:30:32 INFO app 20260508-233032 Selected platform: test
+2026-05-09 01:30:32 INFO app 20260508-233032 Analysis scope resolved: Test mockdata pipeline manual_cross_evidence_included=False manual_cross_evidence_platform=none
+2026-05-09 01:30:32 INFO app 20260508-233032 Collection window resolved: platform=test mode=test log_hours=24 max_events=1000
+2026-05-09 01:30:32 INFO app 20260508-233032 Environment checks starting
+2026-05-09 01:30:32 INFO app 20260508-233032 requirements.txt lists 2 dependencies.
+2026-05-09 01:30:32 INFO app 20260508-233032 Virtual environment detected.
+2026-05-09 01:30:32 INFO app 20260508-233032 Environment checks completed
+2026-05-09 01:30:32 INFO app 20260508-233032 Analysis configuration loaded from /home/omidlab/nordsec-clean-test/Identity-Privilege-Control-Auditor/config/test_config.json
+2026-05-09 01:30:32 INFO app 20260508-233032 Evidence collection starting for platform=test mode=test
+2026-05-09 01:30:32 INFO app 20260508-233032 Collector phase completed with 0 result(s)
+2026-05-09 01:30:32 WARNING app 20260508-233032 Fallback collector activated because primary collector output was unavailable or incomplete.
+2026-05-09 01:30:32 INFO app 20260508-233032 Fallback search order: /home/omidlab/nordsec-clean-test/Identity-Privilege-Control-Auditor/tests/mockdata
+2026-05-09 01:30:32 INFO app 20260508-233032 Fallback source candidate found: /home/omidlab/nordsec-clean-test/Identity-Privilege-Control-Auditor/tests/mockdata/linux_identity.json
+2026-05-09 01:30:32 INFO app 20260508-233032 Fallback source validated as usable candidate: /home/omidlab/nordsec-clean-test/Identity-Privilege-Control-Auditor/tests/mockdata/linux_identity.json
+2026-05-09 01:30:32 INFO app 20260508-233032 Fallback source candidate found: /home/omidlab/nordsec-clean-test/Identity-Privilege-Control-Auditor/tests/mockdata/linux_policy.json
+2026-05-09 01:30:32 INFO app 20260508-233032 Fallback source validated as usable candidate: /home/omidlab/nordsec-clean-test/Identity-Privilege-Control-Auditor/tests/mockdata/linux_policy.json
+2026-05-09 01:30:32 INFO app 20260508-233032 Fallback source candidate found: /home/omidlab/nordsec-clean-test/Identity-Privilege-Control-Auditor/tests/mockdata/windows_identity.csv
+2026-05-09 01:30:32 INFO app 20260508-233032 Fallback source validated as usable candidate: /home/omidlab/nordsec-clean-test/Identity-Privilege-Control-Auditor/tests/mockdata/windows_identity.csv
+2026-05-09 01:30:32 INFO app 20260508-233032 Fallback source candidate found: /home/omidlab/nordsec-clean-test/Identity-Privilege-Control-Auditor/tests/mockdata/windows_events.csv
+2026-05-09 01:30:32 INFO app 20260508-233032 Fallback source validated as usable candidate: /home/omidlab/nordsec-clean-test/Identity-Privilege-Control-Auditor/tests/mockdata/windows_events.csv
+2026-05-09 01:30:32 INFO app 20260508-233032 Fallback source candidate found: /home/omidlab/nordsec-clean-test/Identity-Privilege-Control-Auditor/tests/mockdata/windows_policy.csv
+2026-05-09 01:30:32 INFO app 20260508-233032 Fallback source validated as usable candidate: /home/omidlab/nordsec-clean-test/Identity-Privilege-Control-Auditor/tests/mockdata/windows_policy.csv
+2026-05-09 01:30:32 INFO app 20260508-233032 Fallback source candidate found: /home/omidlab/nordsec-clean-test/Identity-Privilege-Control-Auditor/tests/mockdata/auth.log
+2026-05-09 01:30:32 INFO app 20260508-233032 Fallback source validated as usable candidate: /home/omidlab/nordsec-clean-test/Identity-Privilege-Control-Auditor/tests/mockdata/auth.log
+2026-05-09 01:30:32 INFO app 20260508-233032 Fallback files used: linux_identity=/home/omidlab/nordsec-clean-test/Identity-Privilege-Control-Auditor/tests/mockdata/linux_identity.json, linux_policy=/home/omidlab/nordsec-clean-test/Identity-Privilege-Control-Auditor/tests/mockdata/linux_policy.json, windows_identity=/home/omidlab/nordsec-clean-test/Identity-Privilege-Control-Auditor/tests/mockdata/windows_identity.csv, windows_events=/home/omidlab/nordsec-clean-test/Identity-Privilege-Control-Auditor/tests/mockdata/windows_events.csv, windows_policy=/home/omidlab/nordsec-clean-test/Identity-Privilege-Control-Auditor/tests/mockdata/windows_policy.csv, auth_log=/home/omidlab/nordsec-clean-test/Identity-Privilege-Control-Auditor/tests/mockdata/auth.log
+2026-05-09 01:30:32 INFO app 20260508-233032 Fallback files missing: none
+2026-05-09 01:30:32 INFO app 20260508-233032 Fallback result: Primary collector output was incomplete, so fallback sources were used.
+2026-05-09 01:30:32 INFO app 20260508-233032 Fallback summary: activated=True used_files=6 reason=Primary collector output was incomplete, so fallback sources were used.
+2026-05-09 01:30:32 INFO app 20260508-233032 Initializing identity risk engine for run_id=20260508-233032
+2026-05-09 01:30:32 INFO app 20260508-233032 Loading analysis inputs for mode=test
+2026-05-09 01:30:32 INFO app 20260508-233032 Completed loading analysis inputs
+2026-05-09 01:30:32 INFO app 20260508-233032 Starting analysis for run_id=20260508-233032 mode=test
+2026-05-09 01:30:32 INFO app 20260508-233032 Starting identity normalization
+2026-05-09 01:30:32 INFO app 20260508-233032 Completed identity normalization
+2026-05-09 01:30:32 INFO app 20260508-233032 Starting identity privilege correlation
+2026-05-09 01:30:32 INFO app 20260508-233032 Completed identity privilege correlation
+2026-05-09 01:30:32 INFO app 20260508-233032 Starting event-to-identity correlation
+2026-05-09 01:30:32 INFO app 20260508-233032 Completed event-to-identity correlation
+2026-05-09 01:30:32 INFO app 20260508-233032 Starting policy correlation
+2026-05-09 01:30:32 INFO app 20260508-233032 Completed policy correlation
+2026-05-09 01:30:32 INFO app 20260508-233032 Starting anomaly detection
+2026-05-09 01:30:32 INFO app 20260508-233032 Completed anomaly detection
+2026-05-09 01:30:32 INFO app 20260508-233032 Completed analysis for run_id=20260508-233032 with 11 findings
+2026-05-09 01:30:32 INFO app 20260508-233032 Identity risk engine finished for run_id=20260508-233032
+2026-05-09 01:30:32 INFO app 20260508-233032 Wrote 11 alerts and 5 critical findings
+2026-05-09 01:30:32 INFO app 20260508-233032 Wrote report artifacts: text_report=/home/omidlab/nordsec-clean-test/Identity-Privilege-Control-Auditor/reports/final_identity_risk_report.txt, executive_summary=/home/omidlab/nordsec-clean-test/Identity-Privilege-Control-Auditor/reports/executive_summary.txt, json_report=/home/omidlab/nordsec-clean-test/Identity-Privilege-Control-Auditor/reports/final_identity_risk_report.json, alerts_json=/home/omidlab/nordsec-clean-test/Identity-Privilege-Control-Auditor/data/alerts/alerts.json, critical_alerts_log=/home/omidlab/nordsec-clean-test/Identity-Privilege-Control-Auditor/logs/critical_alerts.log
+2026-05-09 01:30:32 INFO app 20260508-233032 Analysis completed with 11 findings across 7 identities
+2026-05-09 01:30:32 INFO app 20260508-233032 Report artifacts created: text_report=/home/omidlab/nordsec-clean-test/Identity-Privilege-Control-Auditor/reports/final_identity_risk_report.txt, executive_summary=/home/omidlab/nordsec-clean-test/Identity-Privilege-Control-Auditor/reports/executive_summary.txt, json_report=/home/omidlab/nordsec-clean-test/Identity-Privilege-Control-Auditor/reports/final_identity_risk_report.json, alerts_json=/home/omidlab/nordsec-clean-test/Identity-Privilege-Control-Auditor/data/alerts/alerts.json, critical_alerts_log=/home/omidlab/nordsec-clean-test/Identity-Privilege-Control-Auditor/logs/critical_alerts.log
+2026-05-09 01:30:32 INFO app 20260508-233032 [6/6] Safe exit.
+2026-05-09 02:05:01 INFO app 20260509-000501 Program start
+2026-05-09 02:05:01 INFO app 20260509-000501 Collection window resolved: platform=linux log_hours=1 max_events=100
+2026-05-09 02:05:01 INFO app 20260509-000501 Platform selection resolved: linux
+2026-05-09 02:05:01 INFO app 20260509-000501 Selected platform: linux
+2026-05-09 02:05:01 INFO app 20260509-000501 Analysis scope resolved: Linux collector data only manual_cross_evidence_included=False manual_cross_evidence_platform=none
+2026-05-09 02:05:01 INFO app 20260509-000501 Collection window resolved: platform=linux mode=production log_hours=1 max_events=100
+2026-05-09 02:05:01 INFO app 20260509-000501 Environment checks starting
+2026-05-09 02:05:01 INFO app 20260509-000501 requirements.txt lists 2 dependencies.
+2026-05-09 02:05:01 INFO app 20260509-000501 Virtual environment detected.
+2026-05-09 02:05:01 INFO app 20260509-000501 Environment checks completed
+2026-05-09 02:05:01 INFO app 20260509-000501 Analysis configuration loaded from /home/omidlab/nordsec-clean-test/Identity-Privilege-Control-Auditor/config/production_config.json
+2026-05-09 02:05:01 INFO app 20260509-000501 Evidence collection starting for platform=linux mode=production
+2026-05-09 02:05:01 INFO app 20260509-000501 Starting Linux collector in production mode (log_hours=1 max_events=100)
+2026-05-09 02:05:01 INFO app 20260509-000501 Starting command: ['bash', '/home/omidlab/nordsec-clean-test/Identity-Privilege-Control-Auditor/bash/linux_identity_audit.sh', '--mode', 'production', '--log-hours', '1', '--max-events', '100']
+2026-05-09 02:05:01 INFO app 20260509-000501 Completed command: ['bash', '/home/omidlab/nordsec-clean-test/Identity-Privilege-Control-Auditor/bash/linux_identity_audit.sh', '--mode', 'production', '--log-hours', '1', '--max-events', '100'] (rc=0)
+2026-05-09 02:05:01 INFO app 20260509-000501 Linux collector completed successfully
+2026-05-09 02:05:01 INFO app 20260509-000501 Collector result: platform=linux mode=production success=True returncode=0 missing_outputs=none stale_outputs=none
+2026-05-09 02:05:01 INFO app 20260509-000501 Collector phase completed with 1 result(s)
+2026-05-09 02:05:01 INFO app 20260509-000501 Fallback summary: activated=False used_files=2 reason=Platform collectors produced usable outputs.
+2026-05-09 02:05:01 INFO app 20260509-000501 Initializing identity risk engine for run_id=20260509-000501
+2026-05-09 02:05:01 INFO app 20260509-000501 Loading analysis inputs for mode=production
+2026-05-09 02:05:01 INFO app 20260509-000501 windows_identity not selected for this analysis scope
+2026-05-09 02:05:01 INFO app 20260509-000501 windows_events not selected for this analysis scope
+2026-05-09 02:05:01 INFO app 20260509-000501 windows_policy not selected for this analysis scope
+2026-05-09 02:05:01 INFO app 20260509-000501 Completed loading analysis inputs
+2026-05-09 02:05:01 INFO app 20260509-000501 Starting analysis for run_id=20260509-000501 mode=production
+2026-05-09 02:05:01 INFO app 20260509-000501 Starting identity normalization
+2026-05-09 02:05:01 INFO app 20260509-000501 Completed identity normalization
+2026-05-09 02:05:01 INFO app 20260509-000501 Starting identity privilege correlation
+2026-05-09 02:05:01 INFO app 20260509-000501 Completed identity privilege correlation
+2026-05-09 02:05:01 INFO app 20260509-000501 Starting event-to-identity correlation
+2026-05-09 02:05:01 INFO app 20260509-000501 Completed event-to-identity correlation
+2026-05-09 02:05:01 INFO app 20260509-000501 Starting policy correlation
+2026-05-09 02:05:01 INFO app 20260509-000501 Completed policy correlation
+2026-05-09 02:05:01 INFO app 20260509-000501 Starting anomaly detection
+2026-05-09 02:05:01 INFO app 20260509-000501 Completed anomaly detection
+2026-05-09 02:05:01 INFO app 20260509-000501 Completed analysis for run_id=20260509-000501 with 3 findings
+2026-05-09 02:05:01 INFO app 20260509-000501 Identity risk engine finished for run_id=20260509-000501
+2026-05-09 02:05:01 INFO app 20260509-000501 Wrote 3 alerts and 1 critical findings
+2026-05-09 02:05:01 INFO app 20260509-000501 Wrote report artifacts: text_report=/home/omidlab/nordsec-clean-test/Identity-Privilege-Control-Auditor/reports/final_identity_risk_report.txt, executive_summary=/home/omidlab/nordsec-clean-test/Identity-Privilege-Control-Auditor/reports/executive_summary.txt, json_report=/home/omidlab/nordsec-clean-test/Identity-Privilege-Control-Auditor/reports/final_identity_risk_report.json, alerts_json=/home/omidlab/nordsec-clean-test/Identity-Privilege-Control-Auditor/data/alerts/alerts.json, critical_alerts_log=/home/omidlab/nordsec-clean-test/Identity-Privilege-Control-Auditor/logs/critical_alerts.log
+2026-05-09 02:05:01 INFO app 20260509-000501 Analysis completed with 3 findings across 2 identities
+2026-05-09 02:05:01 INFO app 20260509-000501 Report artifacts created: text_report=/home/omidlab/nordsec-clean-test/Identity-Privilege-Control-Auditor/reports/final_identity_risk_report.txt, executive_summary=/home/omidlab/nordsec-clean-test/Identity-Privilege-Control-Auditor/reports/executive_summary.txt, json_report=/home/omidlab/nordsec-clean-test/Identity-Privilege-Control-Auditor/reports/final_identity_risk_report.json, alerts_json=/home/omidlab/nordsec-clean-test/Identity-Privilege-Control-Auditor/data/alerts/alerts.json, critical_alerts_log=/home/omidlab/nordsec-clean-test/Identity-Privilege-Control-Auditor/logs/critical_alerts.log
+2026-05-09 02:05:01 INFO app 20260509-000501 [6/6] Safe exit.

@@ -1,0 +1,242 @@
+{
+  "analysis_scope": "Test mockdata pipeline",
+  "fallback_reason": "Primary collector output was incomplete, so fallback sources were used.",
+  "fallback_used": true,
+  "findings": [
+    {
+      "finding": "Disabled account shows authentication activity",
+      "identity": "disabled_user",
+      "reason": "A disabled account has recent login activity.",
+      "recommended_action": "Review the account and investigate the source of the activity.",
+      "risk_level": "CRITICAL",
+      "source": "events"
+    },
+    {
+      "finding": "Normal user with a single failed login",
+      "identity": "disabled_user",
+      "reason": "A non-privileged account has one failed login event.",
+      "recommended_action": "Monitor for recurrence if the activity is unexpected.",
+      "risk_level": "LOW",
+      "source": "events"
+    },
+    {
+      "finding": "Unapproved Windows administrators member",
+      "identity": "inactive_priv_user",
+      "reason": "The account is a local administrator but is not listed in the approved baseline.",
+      "recommended_action": "Review local administrator membership against the approved baseline.",
+      "risk_level": "CRITICAL",
+      "source": "windows_identity.csv"
+    },
+    {
+      "finding": "Inactive account with privileges",
+      "identity": "inactive_priv_user",
+      "reason": "The account is inactive but still has privileged access.",
+      "recommended_action": "Review whether the account should be disabled or have privileges removed.",
+      "risk_level": "HIGH",
+      "source": "normalized_identities"
+    },
+    {
+      "finding": "Unapproved Linux sudo user",
+      "identity": "svc_archive",
+      "reason": "The account has sudo privileges but is not listed in the approved baseline.",
+      "recommended_action": "Review sudo access against the approved baseline.",
+      "risk_level": "CRITICAL",
+      "source": "approved_linux_sudoers.csv"
+    },
+    {
+      "finding": "Inactive account with privileges",
+      "identity": "svc_archive",
+      "reason": "The account is inactive but still has privileged access.",
+      "recommended_action": "Review whether the account should be disabled or have privileges removed.",
+      "risk_level": "HIGH",
+      "source": "normalized_identities"
+    },
+    {
+      "finding": "Unapproved Windows administrators member",
+      "identity": "unauthorized_admin",
+      "reason": "The account is a local administrator but is not listed in the approved baseline.",
+      "recommended_action": "Review local administrator membership against the approved baseline.",
+      "risk_level": "CRITICAL",
+      "source": "windows_identity.csv"
+    },
+    {
+      "finding": "Unapproved Linux sudo user",
+      "identity": "unauthorized_sudo",
+      "reason": "The account has sudo privileges but is not listed in the approved baseline.",
+      "recommended_action": "Review sudo access against the approved baseline.",
+      "risk_level": "CRITICAL",
+      "source": "approved_linux_sudoers.csv"
+    },
+    {
+      "finding": "Windows Firewall disabled",
+      "identity": "system_policy",
+      "reason": "A readable policy check shows Windows Firewall is disabled.",
+      "recommended_action": "Review firewall configuration against the approved baseline.",
+      "risk_level": "HIGH",
+      "source": "windows_policy.csv"
+    },
+    {
+      "finding": "Windows execution policy differs from the approved baseline",
+      "identity": "system_policy",
+      "reason": "The readable Windows execution policy does not match the approved baseline.",
+      "recommended_action": "Review the policy against the approved baseline.",
+      "risk_level": "MEDIUM",
+      "source": "windows_policy.csv"
+    },
+    {
+      "finding": "Multiple failed logins from the same IP address",
+      "identity": "10.0.0.25",
+      "reason": "Repeated failed logins were observed from a single network source.",
+      "recommended_action": "Review the source address and associated authentication attempts.",
+      "risk_level": "HIGH",
+      "source": "events"
+    }
+  ],
+  "manual_cross_evidence_files": [],
+  "manual_cross_evidence_included": false,
+  "manual_cross_evidence_platform": "none",
+  "manual_cross_evidence_warnings": [],
+  "mode": "test",
+  "run_id": "20260509-010308",
+  "selected_platform": "test",
+  "summary": {
+    "counts": {
+      "CRITICAL": 5,
+      "HIGH": 4,
+      "LOW": 1,
+      "MEDIUM": 1
+    },
+    "identities": [
+      {
+        "findings": [
+          {
+            "finding": "Disabled account shows authentication activity",
+            "identity": "disabled_user",
+            "reason": "A disabled account has recent login activity.",
+            "recommended_action": "Review the account and investigate the source of the activity.",
+            "risk_level": "CRITICAL",
+            "source": "events"
+          },
+          {
+            "finding": "Normal user with a single failed login",
+            "identity": "disabled_user",
+            "reason": "A non-privileged account has one failed login event.",
+            "recommended_action": "Monitor for recurrence if the activity is unexpected.",
+            "risk_level": "LOW",
+            "source": "events"
+          }
+        ],
+        "identity": "disabled_user",
+        "risk_level": "CRITICAL"
+      },
+      {
+        "findings": [
+          {
+            "finding": "Unapproved Windows administrators member",
+            "identity": "inactive_priv_user",
+            "reason": "The account is a local administrator but is not listed in the approved baseline.",
+            "recommended_action": "Review local administrator membership against the approved baseline.",
+            "risk_level": "CRITICAL",
+            "source": "windows_identity.csv"
+          },
+          {
+            "finding": "Inactive account with privileges",
+            "identity": "inactive_priv_user",
+            "reason": "The account is inactive but still has privileged access.",
+            "recommended_action": "Review whether the account should be disabled or have privileges removed.",
+            "risk_level": "HIGH",
+            "source": "normalized_identities"
+          }
+        ],
+        "identity": "inactive_priv_user",
+        "risk_level": "CRITICAL"
+      },
+      {
+        "findings": [
+          {
+            "finding": "Unapproved Linux sudo user",
+            "identity": "svc_archive",
+            "reason": "The account has sudo privileges but is not listed in the approved baseline.",
+            "recommended_action": "Review sudo access against the approved baseline.",
+            "risk_level": "CRITICAL",
+            "source": "approved_linux_sudoers.csv"
+          },
+          {
+            "finding": "Inactive account with privileges",
+            "identity": "svc_archive",
+            "reason": "The account is inactive but still has privileged access.",
+            "recommended_action": "Review whether the account should be disabled or have privileges removed.",
+            "risk_level": "HIGH",
+            "source": "normalized_identities"
+          }
+        ],
+        "identity": "svc_archive",
+        "risk_level": "CRITICAL"
+      },
+      {
+        "findings": [
+          {
+            "finding": "Unapproved Windows administrators member",
+            "identity": "unauthorized_admin",
+            "reason": "The account is a local administrator but is not listed in the approved baseline.",
+            "recommended_action": "Review local administrator membership against the approved baseline.",
+            "risk_level": "CRITICAL",
+            "source": "windows_identity.csv"
+          }
+        ],
+        "identity": "unauthorized_admin",
+        "risk_level": "CRITICAL"
+      },
+      {
+        "findings": [
+          {
+            "finding": "Unapproved Linux sudo user",
+            "identity": "unauthorized_sudo",
+            "reason": "The account has sudo privileges but is not listed in the approved baseline.",
+            "recommended_action": "Review sudo access against the approved baseline.",
+            "risk_level": "CRITICAL",
+            "source": "approved_linux_sudoers.csv"
+          }
+        ],
+        "identity": "unauthorized_sudo",
+        "risk_level": "CRITICAL"
+      },
+      {
+        "findings": [
+          {
+            "finding": "Windows Firewall disabled",
+            "identity": "system_policy",
+            "reason": "A readable policy check shows Windows Firewall is disabled.",
+            "recommended_action": "Review firewall configuration against the approved baseline.",
+            "risk_level": "HIGH",
+            "source": "windows_policy.csv"
+          },
+          {
+            "finding": "Windows execution policy differs from the approved baseline",
+            "identity": "system_policy",
+            "reason": "The readable Windows execution policy does not match the approved baseline.",
+            "recommended_action": "Review the policy against the approved baseline.",
+            "risk_level": "MEDIUM",
+            "source": "windows_policy.csv"
+          }
+        ],
+        "identity": "system_policy",
+        "risk_level": "HIGH"
+      },
+      {
+        "findings": [
+          {
+            "finding": "Multiple failed logins from the same IP address",
+            "identity": "10.0.0.25",
+            "reason": "Repeated failed logins were observed from a single network source.",
+            "recommended_action": "Review the source address and associated authentication attempts.",
+            "risk_level": "HIGH",
+            "source": "events"
+          }
+        ],
+        "identity": "10.0.0.25",
+        "risk_level": "HIGH"
+      }
+    ]
+  }
+}

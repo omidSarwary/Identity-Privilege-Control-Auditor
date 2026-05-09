@@ -1,0 +1,22 @@
+2026-05-09 00:33:15 [INFO] Initialized output paths
+2026-05-09 00:33:15 [INFO] Linux collection window resolved: log_hours=1 max_events=100
+2026-05-09 00:33:15 [INFO] Starting Linux identity audit sensor
+2026-05-09 00:33:15 [INFO] Mode selected: production
+2026-05-09 00:33:15 [INFO] Collecting local users
+2026-05-09 00:33:15 [INFO] Collected 5 local Linux user(s).
+2026-05-09 00:33:15 [INFO] Collecting sudo users
+2026-05-09 00:33:15 [INFO] Collected 3 sudo-enabled account(s).
+2026-05-09 00:33:15 [INFO] Collecting auth-related events
+2026-05-09 00:33:15 [INFO] Linux auth collection window: log_hours=1 max_events=100
+2026-05-09 00:33:15 [INFO] Linux auth log source used: journalctl
+2026-05-09 00:33:15 [INFO] Collected 0 Linux auth event(s) from journalctl using the last 100 lines.
+2026-05-09 00:33:15 [INFO] Checking SSH policy
+2026-05-09 00:33:15 [INFO] Linux SSH policy check started.
+2026-05-09 00:33:15 [INFO] Linux SSH policy check completed.
+2026-05-09 00:33:15 [INFO] Checking sensitive file permissions
+2026-05-09 00:33:15 [INFO] Linux sensitive file permission check started.
+2026-05-09 00:33:15 [INFO] Linux sensitive file permission check completed.
+2026-05-09 00:33:15 [INFO] Exporting linux_identity.json
+2026-05-09 00:33:15 [INFO] Exporting linux_policy.json
+2026-05-09 00:33:15 [INFO] Linux collection summary: identity users=5, sudo members=3, auth events=0
+2026-05-09 00:33:15 [INFO] Linux audit completed successfully

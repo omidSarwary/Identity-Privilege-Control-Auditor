@@ -1,0 +1,23 @@
+{
+  "ssh_policy": {
+    "permit_root_login": "no",
+    "password_authentication": "no",
+    "pubkey_authentication": "yes"
+  },
+  "windows_policy_checks": {
+    "firewall_enabled": true,
+    "audit_policy_enabled": true,
+    "execution_policy": "RemoteSigned"
+  },
+  "audit_policy": {
+    "logon_auditing": "enabled",
+    "privilege_use_auditing": "enabled"
+  },
+  "firewall_policy": {
+    "inbound_default": "block",
+    "outbound_default": "allow"
+  },
+  "execution_policy": {
+    "powershell": "RemoteSigned"
+  }
+}

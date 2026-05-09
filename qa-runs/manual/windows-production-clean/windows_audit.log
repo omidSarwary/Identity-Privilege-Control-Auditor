@@ -1,0 +1,14 @@
+﻿2026-05-09 01:09:06 [INFO] Execution context accepted for mode: Production
+2026-05-09 01:09:06 [INFO] Initialized output paths.
+2026-05-09 01:09:06 [INFO] Windows Security collection window resolved: LogHours=24, MaxEvents=1000, StartTime=2026-05-08T01:09:06Z
+2026-05-09 01:09:06 [INFO] Starting Windows identity audit sensor in Production mode.
+2026-05-09 01:09:06 [INFO] Windows local administrator collection started.
+2026-05-09 01:09:06 [WARNING] The local Administrators group could not be read. Administrator rights may be required. An unspecified error occurred: error code = 1789
+2026-05-09 01:09:06 [INFO] Windows identity collection started.
+2026-05-09 01:09:06 [WARNING] The local Administrators group could not be read. An unspecified error occurred: error code = 1789
+2026-05-09 01:09:06 [INFO] Windows identity collection completed: 6 user(s).
+2026-05-09 01:09:06 [INFO] Windows Security event collection started. LogHours=24, MaxEvents=1000, StartTime=2026-05-08T01:09:06Z, EventIds=4624,4625
+2026-05-09 01:09:08 [WARNING] The Security event log could not be read. No events were found that match the specified selection criteria.
+2026-05-09 01:09:08 [INFO] Windows policy collection started.
+2026-05-09 01:09:09 [INFO] Windows policy collection completed: 5 row(s).
+2026-05-09 01:09:09 [INFO] Windows collection summary: identity=6, events=0, policy=5

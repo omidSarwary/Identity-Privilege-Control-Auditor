@@ -1,0 +1,41 @@
+﻿2026-05-09 03:45:05 INFO app 20260509-014505 Program start
+2026-05-09 03:45:05 INFO app 20260509-014505 Collection window resolved: platform=windows log_hours=1 max_events=100
+2026-05-09 03:45:05 INFO app 20260509-014505 Platform selection resolved: windows
+2026-05-09 03:45:05 INFO app 20260509-014505 Selected platform: windows
+2026-05-09 03:45:05 INFO app 20260509-014505 Analysis scope resolved: Windows collector data + manual Linux evidence manual_cross_evidence_included=True manual_cross_evidence_platform=linux
+2026-05-09 03:45:05 INFO app 20260509-014505 Collection window resolved: platform=windows mode=production log_hours=1 max_events=100
+2026-05-09 03:45:05 INFO app 20260509-014505 Environment checks starting
+2026-05-09 03:45:05 INFO app 20260509-014505 requirements.txt lists 2 dependencies.
+2026-05-09 03:45:05 INFO app 20260509-014505 Virtual environment detected.
+2026-05-09 03:45:05 INFO app 20260509-014505 Environment checks completed
+2026-05-09 03:45:05 INFO app 20260509-014505 Analysis configuration loaded from C:\nordsec-clean-test\Identity-Privilege-Control-Auditor\config\production_config.json
+2026-05-09 03:45:05 INFO app 20260509-014505 Evidence collection starting for platform=windows mode=production
+2026-05-09 03:45:05 INFO app 20260509-014505 Starting Windows collector in Production mode using C:\WINDOWS\System32\WindowsPowerShell\v1.0\powershell.EXE (log_hours=1 max_events=100)
+2026-05-09 03:45:05 INFO app 20260509-014505 Starting command: ['C:\\WINDOWS\\System32\\WindowsPowerShell\\v1.0\\powershell.EXE', '-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', 'C:\\nordsec-clean-test\\Identity-Privilege-Control-Auditor\\powershell\\windows_identity_audit.ps1', '-Mode', 'Production', '-LogHours', '1', '-MaxEvents', '100']
+2026-05-09 03:45:06 INFO app 20260509-014505 Completed command: ['C:\\WINDOWS\\System32\\WindowsPowerShell\\v1.0\\powershell.EXE', '-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', 'C:\\nordsec-clean-test\\Identity-Privilege-Control-Auditor\\powershell\\windows_identity_audit.ps1', '-Mode', 'Production', '-LogHours', '1', '-MaxEvents', '100'] (rc=0)
+2026-05-09 03:45:06 INFO app 20260509-014505 Windows collector completed successfully
+2026-05-09 03:45:06 INFO app 20260509-014505 Collector result: platform=windows mode=Production success=True returncode=0 missing_outputs=none stale_outputs=none
+2026-05-09 03:45:06 INFO app 20260509-014505 Collector phase completed with 1 result(s)
+2026-05-09 03:45:06 INFO app 20260509-014505 Fallback summary: activated=False used_files=3 reason=Platform collectors produced usable outputs.
+2026-05-09 03:45:06 INFO app 20260509-014505 Initializing identity risk engine for run_id=20260509-014505
+2026-05-09 03:45:06 INFO app 20260509-014505 Loading analysis inputs for mode=production
+2026-05-09 03:45:06 ERROR app 20260509-014505 linux_policy.json was found but did not contain the expected policy.ssh_policy mapping.
+2026-05-09 03:45:06 INFO app 20260509-014505 Completed loading analysis inputs
+2026-05-09 03:45:06 INFO app 20260509-014505 Starting analysis for run_id=20260509-014505 mode=production
+2026-05-09 03:45:06 INFO app 20260509-014505 Starting identity normalization
+2026-05-09 03:45:06 INFO app 20260509-014505 Completed identity normalization
+2026-05-09 03:45:06 INFO app 20260509-014505 Starting identity privilege correlation
+2026-05-09 03:45:06 INFO app 20260509-014505 Completed identity privilege correlation
+2026-05-09 03:45:06 INFO app 20260509-014505 Starting event-to-identity correlation
+2026-05-09 03:45:06 INFO app 20260509-014505 Completed event-to-identity correlation
+2026-05-09 03:45:06 INFO app 20260509-014505 Starting policy correlation
+2026-05-09 03:45:06 INFO app 20260509-014505 Completed policy correlation
+2026-05-09 03:45:06 INFO app 20260509-014505 Starting anomaly detection
+2026-05-09 03:45:06 INFO app 20260509-014505 Completed anomaly detection
+2026-05-09 03:45:06 INFO app 20260509-014505 Completed analysis for run_id=20260509-014505 with 8 findings
+2026-05-09 03:45:06 INFO app 20260509-014505 Identity risk engine finished for run_id=20260509-014505
+2026-05-09 03:45:06 INFO app 20260509-014505 Wrote 8 alerts and 5 critical findings
+2026-05-09 03:45:06 INFO app 20260509-014505 Wrote report artifacts: text_report=C:\nordsec-clean-test\Identity-Privilege-Control-Auditor\reports\final_identity_risk_report.txt, executive_summary=C:\nordsec-clean-test\Identity-Privilege-Control-Auditor\reports\executive_summary.txt, json_report=C:\nordsec-clean-test\Identity-Privilege-Control-Auditor\reports\final_identity_risk_report.json, alerts_json=C:\nordsec-clean-test\Identity-Privilege-Control-Auditor\data\alerts\alerts.json, critical_alerts_log=C:\nordsec-clean-test\Identity-Privilege-Control-Auditor\logs\critical_alerts.log
+2026-05-09 03:45:06 INFO app 20260509-014505 Analysis completed with 8 findings across 7 identities
+2026-05-09 03:45:06 INFO app 20260509-014505 Report artifacts created: text_report=C:\nordsec-clean-test\Identity-Privilege-Control-Auditor\reports\final_identity_risk_report.txt, executive_summary=C:\nordsec-clean-test\Identity-Privilege-Control-Auditor\reports\executive_summary.txt, json_report=C:\nordsec-clean-test\Identity-Privilege-Control-Auditor\reports\final_identity_risk_report.json, alerts_json=C:\nordsec-clean-test\Identity-Privilege-Control-Auditor\data\alerts\alerts.json, critical_alerts_log=C:\nordsec-clean-test\Identity-Privilege-Control-Auditor\logs\critical_alerts.log
+2026-05-09 03:45:06 INFO app 20260509-014505 [6/6] Safe exit.

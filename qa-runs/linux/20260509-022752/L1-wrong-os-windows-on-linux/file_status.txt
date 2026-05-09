@@ -1,0 +1,15 @@
+Path                                          Exists   Length     LastWriteTime            
+----                                          ------   ------     -------------            
+data/collected/windows_identity.csv           false                                        
+data/collected/windows_events.csv             false                                        
+data/collected/windows_policy.csv             false                                        
+data/collected/linux_identity.json            false                                        
+data/collected/linux_policy.json              false                                        
+data/alerts/alerts.json                       true     497        2026-05-09 02:28:17      
+reports/final_identity_risk_report.txt        true     2924       2026-05-09 02:28:17      
+reports/final_identity_risk_report.json       true     1556       2026-05-09 02:28:17      
+reports/executive_summary.txt                 true     151        2026-05-09 02:28:17      
+logs/critical_alerts.log                      true     22         2026-05-09 02:28:17      
+logs/python_engine.log                        true     6924       2026-05-09 02:28:17      
+logs/windows_audit.log                        false                                        
+logs/linux_audit.log                          false                                        

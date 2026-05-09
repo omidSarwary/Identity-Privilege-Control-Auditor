@@ -1,0 +1,155 @@
+NORDSEC IDENTITY & PRIVILEGE CONTROL AUDIT REPORT
+Run ID: 20260508-233032
+Date: 2026-05-08 23:30:32 UTC
+Mode: test
+Platform selected: test
+Analysis scope: Test mockdata pipeline
+Manual cross-platform evidence included: No
+Manual cross-platform evidence platform: none
+Manual evidence files found:
+- None
+Data sources used:
+- linux_identity: loaded, valid, path=/home/omidlab/nordsec-clean-test/Identity-Privilege-Control-Auditor/tests/mockdata/linux_identity.json, source=fallback
+- linux_policy: loaded, valid, path=/home/omidlab/nordsec-clean-test/Identity-Privilege-Control-Auditor/tests/mockdata/linux_policy.json, source=fallback
+- windows_identity: loaded, valid, path=/home/omidlab/nordsec-clean-test/Identity-Privilege-Control-Auditor/tests/mockdata/windows_identity.csv, source=fallback
+- windows_events: loaded, valid, path=/home/omidlab/nordsec-clean-test/Identity-Privilege-Control-Auditor/tests/mockdata/windows_events.csv, source=fallback
+- windows_policy: loaded, valid, path=/home/omidlab/nordsec-clean-test/Identity-Privilege-Control-Auditor/tests/mockdata/windows_policy.csv, source=fallback
+- approved_linux_sudoers: loaded, valid, path=/home/omidlab/nordsec-clean-test/Identity-Privilege-Control-Auditor/config/baselines/approved_linux_sudoers.csv
+- approved_windows_admins: loaded, valid, path=/home/omidlab/nordsec-clean-test/Identity-Privilege-Control-Auditor/config/baselines/approved_windows_admins.csv
+- approved_service_accounts: loaded, valid, path=/home/omidlab/nordsec-clean-test/Identity-Privilege-Control-Auditor/config/baselines/approved_service_accounts.csv
+- expected_policy_baseline: loaded, valid, path=/home/omidlab/nordsec-clean-test/Identity-Privilege-Control-Auditor/config/baselines/expected_policy_baseline.json
+- linux_auth_events: loaded, valid, path=/home/omidlab/nordsec-clean-test/Identity-Privilege-Control-Auditor/tests/mockdata/linux_identity.json, source=collector, collector_source=collector
+- linux_auth_log: loaded, valid, path=/home/omidlab/nordsec-clean-test/Identity-Privilege-Control-Auditor/tests/mockdata/auth.log, source=fallback
+Fallback used: Yes
+
+1. Executive Summary
+Total findings: 11
+Critical: 5
+High: 4
+Medium: 1
+Low: 1
+
+2. Data Quality Summary
+- No warnings recorded.
+- No errors recorded.
+
+3. Critical Findings
+- Identity: disabled_user
+  Finding: Disabled account shows authentication activity
+  Reason: A disabled account has recent login activity.
+  Source: events
+  Recommended follow-up: Review the account and investigate the source of the activity.
+
+- Identity: inactive_priv_user
+  Finding: Unapproved Windows administrators member
+  Reason: The account is a local administrator but is not listed in the approved baseline.
+  Source: windows_identity.csv
+  Recommended follow-up: Review local administrator membership against the approved baseline.
+
+- Identity: svc_archive
+  Finding: Unapproved Linux sudo user
+  Reason: The account has sudo privileges but is not listed in the approved baseline.
+  Source: approved_linux_sudoers.csv
+  Recommended follow-up: Review sudo access against the approved baseline.
+
+- Identity: unauthorized_admin
+  Finding: Unapproved Windows administrators member
+  Reason: The account is a local administrator but is not listed in the approved baseline.
+  Source: windows_identity.csv
+  Recommended follow-up: Review local administrator membership against the approved baseline.
+
+- Identity: unauthorized_sudo
+  Finding: Unapproved Linux sudo user
+  Reason: The account has sudo privileges but is not listed in the approved baseline.
+  Source: approved_linux_sudoers.csv
+  Recommended follow-up: Review sudo access against the approved baseline.
+
+4. High Findings
+- Identity: inactive_priv_user
+  Finding: Inactive account with privileges
+  Reason: The account is inactive but still has privileged access.
+  Source: normalized_identities
+  Recommended follow-up: Review whether the account should be disabled or have privileges removed.
+
+- Identity: svc_archive
+  Finding: Inactive account with privileges
+  Reason: The account is inactive but still has privileged access.
+  Source: normalized_identities
+  Recommended follow-up: Review whether the account should be disabled or have privileges removed.
+
+- Identity: system_policy
+  Finding: Windows Firewall disabled
+  Reason: A readable policy check shows Windows Firewall is disabled.
+  Source: windows_policy.csv
+  Recommended follow-up: Review firewall configuration against the approved baseline.
+
+- Identity: 10.0.0.25
+  Finding: Multiple failed logins from the same IP address
+  Reason: Repeated failed logins were observed from a single network source.
+  Source: events
+  Recommended follow-up: Review the source address and associated authentication attempts.
+
+5. Medium Findings
+- Identity: system_policy
+  Finding: Windows execution policy differs from the approved baseline
+  Reason: The readable Windows execution policy does not match the approved baseline.
+  Source: windows_policy.csv
+  Recommended follow-up: Review the policy against the approved baseline.
+
+6. Low Findings
+- Identity: disabled_user
+  Finding: Normal user with a single failed login
+  Reason: A non-privileged account has one failed login event.
+  Source: events
+  Recommended follow-up: Monitor for recurrence if the activity is unexpected.
+
+7. Identity Risk Table
+- disabled_user | risk=CRITICAL | findings=2 | sources=events
+- inactive_priv_user | risk=CRITICAL | findings=2 | sources=normalized_identities, windows_identity.csv
+- svc_archive | risk=CRITICAL | findings=2 | sources=approved_linux_sudoers.csv, normalized_identities
+- unauthorized_admin | risk=CRITICAL | findings=1 | sources=windows_identity.csv
+- unauthorized_sudo | risk=CRITICAL | findings=1 | sources=approved_linux_sudoers.csv
+- system_policy | risk=HIGH | findings=2 | sources=windows_policy.csv
+- 10.0.0.25 | risk=HIGH | findings=1 | sources=events
+
+8. Policy Deviations
+- Identity: system_policy
+  Finding: Windows Firewall disabled
+  Reason: A readable policy check shows Windows Firewall is disabled.
+  Source: windows_policy.csv
+  Recommended follow-up: Review firewall configuration against the approved baseline.
+- Identity: system_policy
+  Finding: Windows execution policy differs from the approved baseline
+  Reason: The readable Windows execution policy does not match the approved baseline.
+  Source: windows_policy.csv
+  Recommended follow-up: Review the policy against the approved baseline.
+
+9. Log/Event Correlations
+- Identity: disabled_user
+  Finding: Disabled account shows authentication activity
+  Reason: A disabled account has recent login activity.
+  Source: events
+  Recommended follow-up: Review the account and investigate the source of the activity.
+- Identity: disabled_user
+  Finding: Normal user with a single failed login
+  Reason: A non-privileged account has one failed login event.
+  Source: events
+  Recommended follow-up: Monitor for recurrence if the activity is unexpected.
+- Identity: 10.0.0.25
+  Finding: Multiple failed logins from the same IP address
+  Reason: Repeated failed logins were observed from a single network source.
+  Source: events
+  Recommended follow-up: Review the source address and associated authentication attempts.
+
+10. Recommended Follow-up
+Review the account and investigate the source of the activity.
+Monitor for recurrence if the activity is unexpected.
+Review local administrator membership against the approved baseline.
+Review whether the account should be disabled or have privileges removed.
+Review sudo access against the approved baseline.
+Review firewall configuration against the approved baseline.
+Review the policy against the approved baseline.
+Review the source address and associated authentication attempts.
+
+11. Limitations
+- No data-quality limitations were recorded.

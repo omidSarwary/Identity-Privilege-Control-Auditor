@@ -1,0 +1,15 @@
+May  8 03:10:11 ubuntu-finance-01 sshd[1842]: Failed password for invalid user admin from 203.0.113.45 port 51244 ssh2
+May  8 03:10:14 ubuntu-finance-01 sshd[1842]: Failed password for invalid user backup from 203.0.113.45 port 51244 ssh2
+May  8 03:10:20 ubuntu-finance-01 sshd[1842]: Failed password for disabled_user from 203.0.113.45 port 51244 ssh2
+May  8 03:10:24 ubuntu-finance-01 sshd[1842]: Failed password for disabled_user from 203.0.113.45 port 51244 ssh2
+May  8 03:10:29 ubuntu-finance-01 sshd[1842]: Failed password for disabled_user from 203.0.113.45 port 51244 ssh2
+May  8 03:11:05 ubuntu-finance-01 sshd[1851]: Failed password for root from 198.51.100.77 port 60112 ssh2
+May  8 03:11:08 ubuntu-finance-01 sshd[1851]: Failed password for root from 198.51.100.77 port 60112 ssh2
+May  8 03:11:10 ubuntu-finance-01 sshd[1851]: Failed password for root from 198.51.100.77 port 60112 ssh2
+May  8 03:12:41 ubuntu-finance-01 sshd[1870]: Accepted password for bio from 10.10.10.24 port 54482 ssh2
+May  8 03:13:18 ubuntu-finance-01 sshd[1875]: Accepted password for svc_archive from 192.168.56.12 port 50888 ssh2
+May  8 03:14:02 ubuntu-finance-01 sudo:      bio : TTY=pts/0 ; PWD=/home/bio ; USER=root ; COMMAND=/usr/bin/systemctl restart auditd
+May  8 03:14:45 ubuntu-finance-01 sudo: unauthorized_sudo : TTY=pts/2 ; PWD=/tmp ; USER=root ; COMMAND=/usr/bin/useradd tempadmin
+May  8 03:15:18 ubuntu-finance-01 sshd[1884]: Connection closed by authenticating user root 198.51.100.77 port 60112 [preauth]
+May  8 03:15:49 ubuntu-finance-01 sshd[1888]: Failed password for invalid user oracle from 203.0.113.45 port 53322 ssh2
+May  8 03:16:10 ubuntu-finance-01 sshd[1890]: Accepted publickey for deploy from 10.10.10.40 port 50012 ssh2

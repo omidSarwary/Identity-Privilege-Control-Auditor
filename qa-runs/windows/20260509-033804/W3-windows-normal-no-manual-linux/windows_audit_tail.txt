@@ -1,0 +1,21 @@
+﻿2026-05-09 01:41:33 [INFO] Execution context accepted for mode: Production
+2026-05-09 01:41:33 [INFO] Initialized output paths.
+2026-05-09 01:41:33 [INFO] Windows Security collection window resolved: LogHours=1, MaxEvents=100, StartTime=2026-05-09T00:41:33Z
+2026-05-09 01:41:33 [INFO] Starting Windows identity audit sensor in Production mode.
+2026-05-09 01:41:33 [INFO] Windows local administrator collection started.
+2026-05-09 01:41:33 [WARNING] Get-LocalGroupMember could not read the local Administrators group. Falling back to ADSI and net localgroup. An unspecified error occurred: error code = 1789
+2026-05-09 01:41:33 [WARNING] Unresolved administrator SID skipped from ADSI: S-1-5-21-1362498765-3355764325-479558430-512
+2026-05-09 01:41:33 [INFO] ADSI administrator fallback returned 3 normalized member(s).
+2026-05-09 01:41:33 [INFO] net localgroup administrator fallback returned 3 normalized member(s).
+2026-05-09 01:41:33 [INFO] Windows local administrator collection completed: 3 resolved member(s).
+2026-05-09 01:41:33 [INFO] Windows identity collection started.
+2026-05-09 01:41:33 [INFO] Windows identity collection completed: 6 user(s).
+2026-05-09 01:41:33 [INFO] Windows Security event collection started. LogHours=1, MaxEvents=100, StartTime=2026-05-09T00:41:33Z, EventIds=4624,4625
+2026-05-09 01:41:33 [WARNING] The Security event log could not be read. No events were found that match the specified selection criteria.
+2026-05-09 01:41:33 [INFO] Windows policy collection started.
+2026-05-09 01:41:34 [INFO] Windows policy collection completed: 5 row(s).
+2026-05-09 01:41:34 [INFO] Windows collection summary: identity=6, events=0, policy=5
+2026-05-09 01:41:34 [INFO] CSV export completed: C:\nordsec-clean-test\Identity-Privilege-Control-Auditor\data\collected\windows_identity.csv
+2026-05-09 01:41:34 [INFO] CSV export completed: C:\nordsec-clean-test\Identity-Privilege-Control-Auditor\data\collected\windows_events.csv
+2026-05-09 01:41:34 [INFO] CSV export completed: C:\nordsec-clean-test\Identity-Privilege-Control-Auditor\data\collected\windows_policy.csv
+2026-05-09 01:41:34 [INFO] Windows audit export completed successfully.

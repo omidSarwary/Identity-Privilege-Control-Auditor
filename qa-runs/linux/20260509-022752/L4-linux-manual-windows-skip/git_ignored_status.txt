@@ -1,0 +1,17 @@
+On branch main
+Your branch is up to date with 'origin/main'.
+
+Ignored files:
+  (use "git add -f <file>..." to include in what will be committed)
+	data/alerts/alerts.json
+	data/collected/linux_identity.json
+	data/collected/linux_policy.json
+	logs/anomalies.log
+	logs/critical_alerts.log
+	logs/linux_audit.log
+	logs/python_engine.log
+	reports/executive_summary.txt
+	reports/final_identity_risk_report.json
+	reports/final_identity_risk_report.txt
+
+nothing to commit, working tree clean

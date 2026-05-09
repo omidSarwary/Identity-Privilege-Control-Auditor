@@ -1,0 +1,12 @@
+May 08 03:09:58 ubuntu-finance-01 systemd[1]: Starting OpenSSH Daemon...
+May 08 03:09:59 ubuntu-finance-01 systemd[1]: Started OpenSSH Daemon.
+May 08 03:10:11 ubuntu-finance-01 sshd[1842]: Failed password for invalid user admin from 203.0.113.45 port 51244 ssh2
+May 08 03:10:20 ubuntu-finance-01 sshd[1842]: Failed password for disabled_user from 203.0.113.45 port 51244 ssh2
+May 08 03:11:05 ubuntu-finance-01 sshd[1851]: Failed password for root from 198.51.100.77 port 60112 ssh2
+May 08 03:12:41 ubuntu-finance-01 sshd[1870]: Accepted password for bio from 10.10.10.24 port 54482 ssh2
+May 08 03:13:18 ubuntu-finance-01 sshd[1875]: Accepted password for svc_archive from 192.168.56.12 port 50888 ssh2
+May 08 03:14:02 ubuntu-finance-01 sudo[1879]: bio : TTY=pts/0 ; PWD=/home/bio ; USER=root ; COMMAND=/usr/bin/systemctl restart auditd
+May 08 03:14:45 ubuntu-finance-01 sudo[1881]: unauthorized_sudo : TTY=pts/2 ; PWD=/tmp ; USER=root ; COMMAND=/usr/bin/useradd tempadmin
+May 08 03:15:03 ubuntu-finance-01 auditd[1750]: Audit daemon configuration reloaded
+May 08 03:16:20 ubuntu-finance-01 systemd-logind[992]: New session 448 of user bio.
+May 08 03:17:44 ubuntu-finance-01 kernel: Firewall detected repeated SSH connection attempts from 198.51.100.77

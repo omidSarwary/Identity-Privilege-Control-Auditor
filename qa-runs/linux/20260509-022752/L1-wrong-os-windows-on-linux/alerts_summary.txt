@@ -1,0 +1,2 @@
+alert_count: 1
+- system_policy | MEDIUM | Partial Windows evidence

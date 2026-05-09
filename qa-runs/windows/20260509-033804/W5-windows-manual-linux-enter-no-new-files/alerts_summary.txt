@@ -1,0 +1,3 @@
+﻿alert_count: 2
+- eviladmin | CRITICAL | Unapproved Windows administrators member
+- system_policy | MEDIUM | Windows execution policy differs from the approved baseline

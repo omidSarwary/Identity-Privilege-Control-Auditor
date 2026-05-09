@@ -1,0 +1,4 @@
+alert_count: 3
+- hacker | CRITICAL | Unapproved Linux sudo user
+- hacker | HIGH | Inactive account with privileges
+- secureadmin | HIGH | Inactive account with privileges

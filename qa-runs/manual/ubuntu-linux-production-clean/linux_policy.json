@@ -1,0 +1,35 @@
+{
+  "source": "linux",
+  "host": "omidlab24",
+  "collection_time": "2026-05-09T00:05:01Z",
+  "mode": "production",
+  "policy": {
+    "ssh_policy": {
+      "permit_root_login": "no",
+      "password_authentication": "unknown",
+      "pubkey_authentication": "unknown"
+    },
+    "file_permissions": {
+      "files": [
+        {
+          "path": "/etc/passwd",
+          "mode": "644",
+          "readable": true,
+          "status": "ok"
+        },
+        {
+          "path": "/etc/shadow",
+          "mode": "640",
+          "readable": true,
+          "status": "ok"
+        },
+        {
+          "path": "/etc/sudoers",
+          "mode": "440",
+          "readable": true,
+          "status": "ok"
+        }
+      ]
+    }
+  }
+}

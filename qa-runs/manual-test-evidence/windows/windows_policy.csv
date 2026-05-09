@@ -1,0 +1,6 @@
+ComputerName,CheckName,Status,Value,RiskHint
+WIN-FINANCE-01,firewall_enabled,False,DomainProfile=Off,Firewall profile disabled
+WIN-FINANCE-01,audit_policy_enabled,True,SuccessAndFailureAuditingEnabled,Audit logging active
+WIN-FINANCE-01,execution_policy,True,RemoteSigned,Scripts allowed from local sources
+WIN-FINANCE-01,password_policy,False,MinimumLength=6;Complexity=Disabled,Weak password policy
+WIN-FINANCE-01,local_admin_review,False,Unauthorized admin account detected,Review local administrators

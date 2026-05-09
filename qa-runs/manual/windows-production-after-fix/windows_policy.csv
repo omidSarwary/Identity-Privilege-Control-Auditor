@@ -1,0 +1,6 @@
+﻿"ComputerName","CheckName","Status","Value","RiskHint"
+"WIN11-01","firewall_enabled","True","Enabled","Expected"
+"WIN11-01","firewall_enabled","True","Enabled","Expected"
+"WIN11-01","firewall_enabled","True","Enabled","Expected"
+"WIN11-01","execution_policy","False","Undefined","Policy deviation"
+"WIN11-01","audit_policy_enabled","True","Available","Expected"

@@ -1,0 +1,1 @@
+CRITICAL | hacker | Unapproved Linux sudo user | approved_linux_sudoers.csv | The account has sudo privileges but is not listed in the approved baseline.

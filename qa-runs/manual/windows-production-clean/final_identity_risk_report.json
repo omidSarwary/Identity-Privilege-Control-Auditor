@@ -1,0 +1,46 @@
+{
+  "analysis_scope": "Windows collector data only",
+  "fallback_reason": "Primary collector output was incomplete, so fallback sources were used.",
+  "fallback_used": true,
+  "findings": [
+    {
+      "finding": "Partial Windows evidence",
+      "identity": "system_policy",
+      "reason": "Windows evidence was partial: windows_identity, windows_events was available, but windows_policy was missing.",
+      "recommended_action": "Re-collect or supply the missing evidence sources before making final access decisions.",
+      "risk_level": "MEDIUM",
+      "source": "data_quality"
+    }
+  ],
+  "manual_cross_evidence_files": [],
+  "manual_cross_evidence_included": false,
+  "manual_cross_evidence_platform": "none",
+  "manual_cross_evidence_warnings": [],
+  "mode": "production",
+  "run_id": "20260509-010905",
+  "selected_platform": "windows",
+  "summary": {
+    "counts": {
+      "CRITICAL": 0,
+      "HIGH": 0,
+      "LOW": 0,
+      "MEDIUM": 1
+    },
+    "identities": [
+      {
+        "findings": [
+          {
+            "finding": "Partial Windows evidence",
+            "identity": "system_policy",
+            "reason": "Windows evidence was partial: windows_identity, windows_events was available, but windows_policy was missing.",
+            "recommended_action": "Re-collect or supply the missing evidence sources before making final access decisions.",
+            "risk_level": "MEDIUM",
+            "source": "data_quality"
+          }
+        ],
+        "identity": "system_policy",
+        "risk_level": "MEDIUM"
+      }
+    ]
+  }
+}

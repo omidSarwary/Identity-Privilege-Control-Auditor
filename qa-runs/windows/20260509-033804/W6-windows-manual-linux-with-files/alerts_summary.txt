@@ -1,0 +1,9 @@
+﻿alert_count: 8
+- bio | CRITICAL | Unapproved Linux sudo user
+- disabled_user | CRITICAL | Disabled account shows authentication activity
+- eviladmin | CRITICAL | Unapproved Windows administrators member
+- svc_archive | CRITICAL | Unapproved Linux sudo user
+- svc_archive | HIGH | Inactive account with privileges
+- unauthorized_sudo | CRITICAL | Unapproved Linux sudo user
+- system_policy | MEDIUM | Windows execution policy differs from the approved baseline
+- 203.0.113.45 | HIGH | Multiple failed logins from the same IP address

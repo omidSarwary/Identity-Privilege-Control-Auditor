@@ -1,0 +1,15 @@
+alert_count: 14
+- Administrator | CRITICAL | Unapproved Windows administrators member
+- Administrator | HIGH | Inactive account with privileges
+- Administrator | CRITICAL | Disabled account shows authentication activity
+- Administrator | CRITICAL | Privileged account with repeated failed logins
+- disabled_user | CRITICAL | Disabled account shows authentication activity
+- hacker | CRITICAL | Unapproved Linux sudo user
+- hacker | HIGH | Inactive account with privileges
+- helpdesk_user | LOW | Normal user with a single failed login
+- inactive_priv_user | CRITICAL | Unapproved Windows administrators member
+- inactive_priv_user | HIGH | Inactive account with privileges
+- secureadmin | HIGH | Inactive account with privileges
+- unauthorized_admin | CRITICAL | Unapproved Windows administrators member
+- system_policy | HIGH | Windows Firewall disabled
+- 198.51.100.25 | HIGH | Multiple failed logins from the same IP address

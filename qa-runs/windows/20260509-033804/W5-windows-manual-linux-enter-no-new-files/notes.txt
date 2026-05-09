@@ -1,0 +1,12 @@
+﻿Scenario: Windows normal values, manual Linux yes, Enter without adding files
+Generated at: 2026-05-09 03:42:40
+Project root: C:\nordsec-clean-test\Identity-Privilege-Control-Auditor
+
+Review checklist:
+- Did terminal output match expected scenario behavior?
+- Did selected_platform and analysis_scope match the scenario?
+- Was fallback used correctly?
+- Were stale/ignored/manual evidence warnings clear?
+- Were generated reports consistent with console output?
+- Were wrong-OS or permission problems handled clearly?
+- Did git status remain clean except ignored runtime files?

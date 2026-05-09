@@ -1,0 +1,124 @@
+{
+  "source": "linux",
+  "host": "ubuntu-finance-01",
+  "mode": "production",
+  "collection_time": "2026-05-08T04:18:22Z",
+  "collector_status": "success",
+  "users": [
+    {
+      "username": "root",
+      "enabled": true,
+      "privileges": ["root"],
+      "is_inactive": false,
+      "last_login": "2026-05-07T23:14:09Z"
+    },
+    {
+      "username": "bio",
+      "enabled": true,
+      "privileges": ["sudo", "adm"],
+      "is_inactive": false,
+      "last_login": "2026-05-08T03:42:11Z"
+    },
+    {
+      "username": "ops_backup",
+      "enabled": true,
+      "privileges": ["sudo"],
+      "is_inactive": false,
+      "last_login": "2026-05-06T22:11:02Z"
+    },
+    {
+      "username": "svc_archive",
+      "enabled": true,
+      "privileges": ["sudo"],
+      "is_inactive": true,
+      "last_login": "2026-01-14T02:18:54Z"
+    },
+    {
+      "username": "unauthorized_sudo",
+      "enabled": true,
+      "privileges": ["sudo"],
+      "is_inactive": false,
+      "last_login": "2026-05-08T02:57:33Z"
+    },
+    {
+      "username": "disabled_user",
+      "enabled": false,
+      "privileges": [],
+      "is_inactive": false,
+      "last_login": "2025-12-19T18:09:44Z"
+    },
+    {
+      "username": "webapp",
+      "enabled": true,
+      "privileges": ["service"],
+      "is_inactive": false,
+      "last_login": "2026-05-07T20:05:17Z"
+    },
+    {
+      "username": "deploy",
+      "enabled": true,
+      "privileges": ["deployment"],
+      "is_inactive": false,
+      "last_login": "2026-05-07T19:22:58Z"
+    }
+  ],
+  "sudo_users": [
+    "bio",
+    "ops_backup",
+    "svc_archive",
+    "unauthorized_sudo"
+  ],
+  "auth_events": [
+    {
+      "username": "disabled_user",
+      "event_type": "failed_login",
+      "ip_address": "203.0.113.45",
+      "timestamp": "2026-05-08T03:11:10Z",
+      "count": 6
+    },
+    {
+      "username": "root",
+      "event_type": "failed_login",
+      "ip_address": "198.51.100.77",
+      "timestamp": "2026-05-08T03:16:22Z",
+      "count": 9
+    },
+    {
+      "username": "bio",
+      "event_type": "successful_login",
+      "ip_address": "10.10.10.24",
+      "timestamp": "2026-05-08T03:42:11Z",
+      "count": 1
+    },
+    {
+      "username": "svc_archive",
+      "event_type": "successful_login",
+      "ip_address": "192.168.56.12",
+      "timestamp": "2026-05-08T01:55:42Z",
+      "count": 1
+    },
+    {
+      "username": "bio",
+      "event_type": "sudo_command",
+      "ip_address": "10.10.10.24",
+      "timestamp": "2026-05-08T03:49:54Z",
+      "count": 3
+    },
+    {
+      "username": "ops_backup",
+      "event_type": "sudo_command",
+      "ip_address": "10.10.10.31",
+      "timestamp": "2026-05-08T02:04:20Z",
+      "count": 2
+    }
+  ],
+  "policy": {
+    "approved_sudo_users": [
+      "bio",
+      "ops_backup"
+    ],
+    "ssh_root_login": "yes",
+    "password_authentication": "yes",
+    "audit_logging_enabled": true
+  }
+}

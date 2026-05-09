@@ -1,0 +1,40 @@
+2026-05-09 02:38:19 INFO app 20260509-003819 Program start
+2026-05-09 02:38:19 INFO app 20260509-003819 Collection window resolved: platform=linux log_hours=1 max_events=100
+2026-05-09 02:38:19 INFO app 20260509-003819 Platform selection resolved: linux
+2026-05-09 02:38:19 INFO app 20260509-003819 Selected platform: linux
+2026-05-09 02:38:19 INFO app 20260509-003819 Analysis scope resolved: Linux collector data + manual Windows evidence manual_cross_evidence_included=True manual_cross_evidence_platform=windows
+2026-05-09 02:38:19 INFO app 20260509-003819 Collection window resolved: platform=linux mode=production log_hours=1 max_events=100
+2026-05-09 02:38:19 INFO app 20260509-003819 Environment checks starting
+2026-05-09 02:38:19 INFO app 20260509-003819 requirements.txt lists 2 dependencies.
+2026-05-09 02:38:19 INFO app 20260509-003819 Virtual environment detected.
+2026-05-09 02:38:19 INFO app 20260509-003819 Environment checks completed
+2026-05-09 02:38:19 INFO app 20260509-003819 Analysis configuration loaded from /home/omidlab/nordsec-clean-test/Identity-Privilege-Control-Auditor/config/production_config.json
+2026-05-09 02:38:19 INFO app 20260509-003819 Evidence collection starting for platform=linux mode=production
+2026-05-09 02:38:19 INFO app 20260509-003819 Starting Linux collector in production mode (log_hours=1 max_events=100)
+2026-05-09 02:38:19 INFO app 20260509-003819 Starting command: ['bash', '/home/omidlab/nordsec-clean-test/Identity-Privilege-Control-Auditor/bash/linux_identity_audit.sh', '--mode', 'production', '--log-hours', '1', '--max-events', '100']
+2026-05-09 02:38:19 INFO app 20260509-003819 Completed command: ['bash', '/home/omidlab/nordsec-clean-test/Identity-Privilege-Control-Auditor/bash/linux_identity_audit.sh', '--mode', 'production', '--log-hours', '1', '--max-events', '100'] (rc=0)
+2026-05-09 02:38:19 INFO app 20260509-003819 Linux collector completed successfully
+2026-05-09 02:38:19 INFO app 20260509-003819 Collector result: platform=linux mode=production success=True returncode=0 missing_outputs=none stale_outputs=none
+2026-05-09 02:38:19 INFO app 20260509-003819 Collector phase completed with 1 result(s)
+2026-05-09 02:38:19 INFO app 20260509-003819 Fallback summary: activated=False used_files=2 reason=Platform collectors produced usable outputs.
+2026-05-09 02:38:19 INFO app 20260509-003819 Initializing identity risk engine for run_id=20260509-003819
+2026-05-09 02:38:19 INFO app 20260509-003819 Loading analysis inputs for mode=production
+2026-05-09 02:38:19 INFO app 20260509-003819 Completed loading analysis inputs
+2026-05-09 02:38:19 INFO app 20260509-003819 Starting analysis for run_id=20260509-003819 mode=production
+2026-05-09 02:38:19 INFO app 20260509-003819 Starting identity normalization
+2026-05-09 02:38:19 INFO app 20260509-003819 Completed identity normalization
+2026-05-09 02:38:19 INFO app 20260509-003819 Starting identity privilege correlation
+2026-05-09 02:38:19 INFO app 20260509-003819 Completed identity privilege correlation
+2026-05-09 02:38:19 INFO app 20260509-003819 Starting event-to-identity correlation
+2026-05-09 02:38:19 INFO app 20260509-003819 Completed event-to-identity correlation
+2026-05-09 02:38:19 INFO app 20260509-003819 Starting policy correlation
+2026-05-09 02:38:19 INFO app 20260509-003819 Completed policy correlation
+2026-05-09 02:38:19 INFO app 20260509-003819 Starting anomaly detection
+2026-05-09 02:38:19 INFO app 20260509-003819 Completed anomaly detection
+2026-05-09 02:38:19 INFO app 20260509-003819 Completed analysis for run_id=20260509-003819 with 14 findings
+2026-05-09 02:38:19 INFO app 20260509-003819 Identity risk engine finished for run_id=20260509-003819
+2026-05-09 02:38:19 INFO app 20260509-003819 Wrote 14 alerts and 7 critical findings
+2026-05-09 02:38:19 INFO app 20260509-003819 Wrote report artifacts: text_report=/home/omidlab/nordsec-clean-test/Identity-Privilege-Control-Auditor/reports/final_identity_risk_report.txt, executive_summary=/home/omidlab/nordsec-clean-test/Identity-Privilege-Control-Auditor/reports/executive_summary.txt, json_report=/home/omidlab/nordsec-clean-test/Identity-Privilege-Control-Auditor/reports/final_identity_risk_report.json, alerts_json=/home/omidlab/nordsec-clean-test/Identity-Privilege-Control-Auditor/data/alerts/alerts.json, critical_alerts_log=/home/omidlab/nordsec-clean-test/Identity-Privilege-Control-Auditor/logs/critical_alerts.log
+2026-05-09 02:38:19 INFO app 20260509-003819 Analysis completed with 14 findings across 9 identities
+2026-05-09 02:38:19 INFO app 20260509-003819 Report artifacts created: text_report=/home/omidlab/nordsec-clean-test/Identity-Privilege-Control-Auditor/reports/final_identity_risk_report.txt, executive_summary=/home/omidlab/nordsec-clean-test/Identity-Privilege-Control-Auditor/reports/executive_summary.txt, json_report=/home/omidlab/nordsec-clean-test/Identity-Privilege-Control-Auditor/reports/final_identity_risk_report.json, alerts_json=/home/omidlab/nordsec-clean-test/Identity-Privilege-Control-Auditor/data/alerts/alerts.json, critical_alerts_log=/home/omidlab/nordsec-clean-test/Identity-Privilege-Control-Auditor/logs/critical_alerts.log
+2026-05-09 02:38:19 INFO app 20260509-003819 [6/6] Safe exit.

@@ -1,0 +1,7 @@
+﻿"ComputerName","CollectionTime","Username","Enabled","IsLocalAdmin","LastLogon","Source"
+"WIN11-01","2026-05-09T01:09:06Z","Administrator","False","False","","local_user"
+"WIN11-01","2026-05-09T01:09:06Z","DefaultAccount","False","False","","local_user"
+"WIN11-01","2026-05-09T01:09:06Z","eviladmin","True","False","","local_user"
+"WIN11-01","2026-05-09T01:09:06Z","Guest","False","False","","local_user"
+"WIN11-01","2026-05-09T01:09:06Z","Omidlab","True","False","2026-05-09T00:48:18Z","local_user"
+"WIN11-01","2026-05-09T01:09:06Z","WDAGUtilityAccount","False","False","","local_user"

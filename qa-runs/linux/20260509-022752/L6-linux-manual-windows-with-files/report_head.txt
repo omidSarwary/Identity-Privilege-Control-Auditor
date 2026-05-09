@@ -1,0 +1,120 @@
+NORDSEC IDENTITY & PRIVILEGE CONTROL AUDIT REPORT
+Run ID: 20260509-003819
+Date: 2026-05-09 00:38:19 UTC
+Mode: production
+Platform selected: linux
+Analysis scope: Linux collector data + manual Windows evidence
+Manual cross-platform evidence included: Yes
+Manual cross-platform evidence platform: windows
+Manual evidence files found:
+- /home/omidlab/nordsec-clean-test/Identity-Privilege-Control-Auditor/data/incoming/windows_identity.csv
+- /home/omidlab/nordsec-clean-test/Identity-Privilege-Control-Auditor/data/incoming/windows_events.csv
+- /home/omidlab/nordsec-clean-test/Identity-Privilege-Control-Auditor/data/incoming/windows_policy.csv
+- /home/omidlab/nordsec-clean-test/Identity-Privilege-Control-Auditor/logdata/windows/security_events.csv
+- /home/omidlab/nordsec-clean-test/Identity-Privilege-Control-Auditor/logdata/windows/eventviewer_export.csv
+Data sources used:
+- linux_identity: loaded, valid, path=/home/omidlab/nordsec-clean-test/Identity-Privilege-Control-Auditor/data/collected/linux_identity.json, source=collector
+- linux_policy: loaded, valid, path=/home/omidlab/nordsec-clean-test/Identity-Privilege-Control-Auditor/data/collected/linux_policy.json, source=collector
+- windows_identity: loaded, valid, path=/home/omidlab/nordsec-clean-test/Identity-Privilege-Control-Auditor/data/incoming/windows_identity.csv, source=manual
+- windows_events: loaded, valid, path=/home/omidlab/nordsec-clean-test/Identity-Privilege-Control-Auditor/data/incoming/windows_events.csv, source=manual
+- windows_policy: loaded, valid, path=/home/omidlab/nordsec-clean-test/Identity-Privilege-Control-Auditor/data/incoming/windows_policy.csv, source=manual
+- approved_linux_sudoers: loaded, valid, path=/home/omidlab/nordsec-clean-test/Identity-Privilege-Control-Auditor/config/baselines/approved_linux_sudoers.csv
+- approved_windows_admins: loaded, valid, path=/home/omidlab/nordsec-clean-test/Identity-Privilege-Control-Auditor/config/baselines/approved_windows_admins.csv
+- approved_service_accounts: loaded, valid, path=/home/omidlab/nordsec-clean-test/Identity-Privilege-Control-Auditor/config/baselines/approved_service_accounts.csv
+- expected_policy_baseline: loaded, valid, path=/home/omidlab/nordsec-clean-test/Identity-Privilege-Control-Auditor/config/baselines/expected_policy_baseline.json
+- linux_auth_events: loaded, valid, path=/home/omidlab/nordsec-clean-test/Identity-Privilege-Control-Auditor/data/collected/linux_identity.json, source=collector, collector_source=collector
+- linux_auth_log: not selected, path=n/a, source=not_selected
+Fallback used: No
+
+1. Executive Summary
+Total findings: 14
+Critical: 7
+High: 6
+Medium: 0
+Low: 1
+
+2. Data Quality Summary
+Warnings:
+- Manual Windows evidence file was already present when scanned. Verify it is the intended file: /home/omidlab/nordsec-clean-test/Identity-Privilege-Control-Auditor/data/incoming/windows_identity.csv
+- Manual Windows evidence file was already present when scanned. Verify it is the intended file: /home/omidlab/nordsec-clean-test/Identity-Privilege-Control-Auditor/data/incoming/windows_events.csv
+- Manual Windows evidence file was already present when scanned. Verify it is the intended file: /home/omidlab/nordsec-clean-test/Identity-Privilege-Control-Auditor/data/incoming/windows_policy.csv
+- Manual Windows evidence file was already present when scanned. Verify it is the intended file: /home/omidlab/nordsec-clean-test/Identity-Privilege-Control-Auditor/logdata/windows/security_events.csv
+- Manual Windows evidence file was already present when scanned. Verify it is the intended file: /home/omidlab/nordsec-clean-test/Identity-Privilege-Control-Auditor/logdata/windows/eventviewer_export.csv
+- No errors recorded.
+
+3. Critical Findings
+- Identity: Administrator
+  Finding: Unapproved Windows administrators member
+  Reason: The disabled account still appears in local administrator membership but is not listed in the approved baseline.
+  Source: windows_identity.csv
+  Recommended follow-up: Review local administrator membership against the approved baseline.
+
+- Identity: Administrator
+  Finding: Disabled account shows authentication activity
+  Reason: A disabled account has recent login activity.
+  Source: events
+  Recommended follow-up: Review the account and investigate the source of the activity.
+
+- Identity: Administrator
+  Finding: Privileged account with repeated failed logins
+  Reason: A privileged account has multiple failed login attempts.
+  Source: events
+  Recommended follow-up: Verify whether the activity is expected and investigate possible abuse.
+
+- Identity: disabled_user
+  Finding: Disabled account shows authentication activity
+  Reason: A disabled account has recent login activity.
+  Source: events
+  Recommended follow-up: Review the account and investigate the source of the activity.
+
+- Identity: hacker
+  Finding: Unapproved Linux sudo user
+  Reason: The account has sudo privileges but is not listed in the approved baseline.
+  Source: approved_linux_sudoers.csv
+  Recommended follow-up: Review sudo access against the approved baseline.
+
+- Identity: inactive_priv_user
+  Finding: Unapproved Windows administrators member
+  Reason: The account is a local administrator but is not listed in the approved baseline.
+  Source: windows_identity.csv
+  Recommended follow-up: Review local administrator membership against the approved baseline.
+
+- Identity: unauthorized_admin
+  Finding: Unapproved Windows administrators member
+  Reason: The account is a local administrator but is not listed in the approved baseline.
+  Source: windows_identity.csv
+  Recommended follow-up: Review local administrator membership against the approved baseline.
+
+4. High Findings
+- Identity: Administrator
+  Finding: Inactive account with privileges
+  Reason: The account is inactive but still has privileged access.
+  Source: normalized_identities
+  Recommended follow-up: Review whether the account should be disabled or have privileges removed.
+
+- Identity: hacker
+  Finding: Inactive account with privileges
+  Reason: The account is inactive but still has privileged access.
+  Source: normalized_identities
+  Recommended follow-up: Review whether the account should be disabled or have privileges removed.
+
+- Identity: inactive_priv_user
+  Finding: Inactive account with privileges
+  Reason: The account is inactive but still has privileged access.
+  Source: normalized_identities
+  Recommended follow-up: Review whether the account should be disabled or have privileges removed.
+
+- Identity: secureadmin
+  Finding: Inactive account with privileges
+  Reason: The account is inactive but still has privileged access.
+  Source: normalized_identities
+  Recommended follow-up: Review whether the account should be disabled or have privileges removed.
+
+- Identity: system_policy
+  Finding: Windows Firewall disabled
+  Reason: A readable policy check shows Windows Firewall is disabled.
+  Source: windows_policy.csv
+  Recommended follow-up: Review firewall configuration against the approved baseline.
+
+- Identity: 198.51.100.25
+  Finding: Multiple failed logins from the same IP address

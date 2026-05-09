@@ -1,0 +1,104 @@
+2026-05-09 03:02:26 INFO app 20260509-010226 Program start
+2026-05-09 03:02:26 INFO app 20260509-010226 Collection window resolved: platform=test log_hours=24 max_events=1000
+2026-05-09 03:02:26 INFO app 20260509-010226 Platform selection resolved: test
+2026-05-09 03:02:26 INFO app 20260509-010226 Selected platform: test
+2026-05-09 03:02:26 INFO app 20260509-010226 Analysis scope resolved: Test mockdata pipeline manual_cross_evidence_included=False manual_cross_evidence_platform=none
+2026-05-09 03:02:26 INFO app 20260509-010226 Collection window resolved: platform=test mode=test log_hours=24 max_events=1000
+2026-05-09 03:02:26 INFO app 20260509-010226 Environment checks starting
+2026-05-09 03:02:26 INFO app 20260509-010226 requirements.txt lists 2 dependencies.
+2026-05-09 03:02:26 INFO app 20260509-010226 Virtual environment detected.
+2026-05-09 03:02:26 INFO app 20260509-010226 Environment checks completed
+2026-05-09 03:02:26 INFO app 20260509-010226 Analysis configuration loaded from C:\nordsec-clean-test\Identity-Privilege-Control-Auditor\config\test_config.json
+2026-05-09 03:02:26 INFO app 20260509-010226 Evidence collection starting for platform=test mode=test
+2026-05-09 03:02:26 INFO app 20260509-010226 Collector phase completed with 0 result(s)
+2026-05-09 03:02:26 WARNING app 20260509-010226 Fallback collector activated because primary collector output was unavailable or incomplete.
+2026-05-09 03:02:26 INFO app 20260509-010226 Fallback search order: C:\nordsec-clean-test\Identity-Privilege-Control-Auditor\tests\mockdata
+2026-05-09 03:02:26 INFO app 20260509-010226 Fallback source candidate found: C:\nordsec-clean-test\Identity-Privilege-Control-Auditor\tests\mockdata\linux_identity.json
+2026-05-09 03:02:26 INFO app 20260509-010226 Fallback source validated as usable candidate: C:\nordsec-clean-test\Identity-Privilege-Control-Auditor\tests\mockdata\linux_identity.json
+2026-05-09 03:02:26 INFO app 20260509-010226 Fallback source candidate found: C:\nordsec-clean-test\Identity-Privilege-Control-Auditor\tests\mockdata\linux_policy.json
+2026-05-09 03:02:26 INFO app 20260509-010226 Fallback source validated as usable candidate: C:\nordsec-clean-test\Identity-Privilege-Control-Auditor\tests\mockdata\linux_policy.json
+2026-05-09 03:02:26 INFO app 20260509-010226 Fallback source candidate found: C:\nordsec-clean-test\Identity-Privilege-Control-Auditor\tests\mockdata\windows_identity.csv
+2026-05-09 03:02:26 INFO app 20260509-010226 Fallback source validated as usable candidate: C:\nordsec-clean-test\Identity-Privilege-Control-Auditor\tests\mockdata\windows_identity.csv
+2026-05-09 03:02:26 INFO app 20260509-010226 Fallback source candidate found: C:\nordsec-clean-test\Identity-Privilege-Control-Auditor\tests\mockdata\windows_events.csv
+2026-05-09 03:02:26 INFO app 20260509-010226 Fallback source validated as usable candidate: C:\nordsec-clean-test\Identity-Privilege-Control-Auditor\tests\mockdata\windows_events.csv
+2026-05-09 03:02:26 INFO app 20260509-010226 Fallback source candidate found: C:\nordsec-clean-test\Identity-Privilege-Control-Auditor\tests\mockdata\windows_policy.csv
+2026-05-09 03:02:26 INFO app 20260509-010226 Fallback source validated as usable candidate: C:\nordsec-clean-test\Identity-Privilege-Control-Auditor\tests\mockdata\windows_policy.csv
+2026-05-09 03:02:26 INFO app 20260509-010226 Fallback source candidate found: C:\nordsec-clean-test\Identity-Privilege-Control-Auditor\tests\mockdata\auth.log
+2026-05-09 03:02:26 INFO app 20260509-010226 Fallback source validated as usable candidate: C:\nordsec-clean-test\Identity-Privilege-Control-Auditor\tests\mockdata\auth.log
+2026-05-09 03:02:26 INFO app 20260509-010226 Fallback files used: linux_identity=C:\nordsec-clean-test\Identity-Privilege-Control-Auditor\tests\mockdata\linux_identity.json, linux_policy=C:\nordsec-clean-test\Identity-Privilege-Control-Auditor\tests\mockdata\linux_policy.json, windows_identity=C:\nordsec-clean-test\Identity-Privilege-Control-Auditor\tests\mockdata\windows_identity.csv, windows_events=C:\nordsec-clean-test\Identity-Privilege-Control-Auditor\tests\mockdata\windows_events.csv, windows_policy=C:\nordsec-clean-test\Identity-Privilege-Control-Auditor\tests\mockdata\windows_policy.csv, auth_log=C:\nordsec-clean-test\Identity-Privilege-Control-Auditor\tests\mockdata\auth.log
+2026-05-09 03:02:26 INFO app 20260509-010226 Fallback files missing: none
+2026-05-09 03:02:26 INFO app 20260509-010226 Fallback result: Primary collector output was incomplete, so fallback sources were used.
+2026-05-09 03:02:26 INFO app 20260509-010226 Fallback summary: activated=True used_files=6 reason=Primary collector output was incomplete, so fallback sources were used.
+2026-05-09 03:02:26 INFO app 20260509-010226 Initializing identity risk engine for run_id=20260509-010226
+2026-05-09 03:02:26 INFO app 20260509-010226 Loading analysis inputs for mode=test
+2026-05-09 03:02:26 INFO app 20260509-010226 Completed loading analysis inputs
+2026-05-09 03:02:26 INFO app 20260509-010226 Starting analysis for run_id=20260509-010226 mode=test
+2026-05-09 03:02:26 INFO app 20260509-010226 Starting identity normalization
+2026-05-09 03:02:26 INFO app 20260509-010226 Completed identity normalization
+2026-05-09 03:02:26 INFO app 20260509-010226 Starting identity privilege correlation
+2026-05-09 03:02:26 INFO app 20260509-010226 Completed identity privilege correlation
+2026-05-09 03:02:26 INFO app 20260509-010226 Starting event-to-identity correlation
+2026-05-09 03:02:26 INFO app 20260509-010226 Completed event-to-identity correlation
+2026-05-09 03:02:26 INFO app 20260509-010226 Starting policy correlation
+2026-05-09 03:02:26 INFO app 20260509-010226 Completed policy correlation
+2026-05-09 03:02:26 INFO app 20260509-010226 Starting anomaly detection
+2026-05-09 03:02:26 INFO app 20260509-010226 Completed anomaly detection
+2026-05-09 03:02:26 INFO app 20260509-010226 Completed analysis for run_id=20260509-010226 with 11 findings
+2026-05-09 03:02:26 INFO app 20260509-010226 Identity risk engine finished for run_id=20260509-010226
+2026-05-09 03:02:26 INFO app 20260509-010226 Wrote 11 alerts and 5 critical findings
+2026-05-09 03:02:26 INFO app 20260509-010226 Wrote report artifacts: text_report=C:\nordsec-clean-test\Identity-Privilege-Control-Auditor\reports\final_identity_risk_report.txt, executive_summary=C:\nordsec-clean-test\Identity-Privilege-Control-Auditor\reports\executive_summary.txt, json_report=C:\nordsec-clean-test\Identity-Privilege-Control-Auditor\reports\final_identity_risk_report.json, alerts_json=C:\nordsec-clean-test\Identity-Privilege-Control-Auditor\data\alerts\alerts.json, critical_alerts_log=C:\nordsec-clean-test\Identity-Privilege-Control-Auditor\logs\critical_alerts.log
+2026-05-09 03:02:26 INFO app 20260509-010226 Analysis completed with 11 findings across 7 identities
+2026-05-09 03:02:26 INFO app 20260509-010226 Report artifacts created: text_report=C:\nordsec-clean-test\Identity-Privilege-Control-Auditor\reports\final_identity_risk_report.txt, executive_summary=C:\nordsec-clean-test\Identity-Privilege-Control-Auditor\reports\executive_summary.txt, json_report=C:\nordsec-clean-test\Identity-Privilege-Control-Auditor\reports\final_identity_risk_report.json, alerts_json=C:\nordsec-clean-test\Identity-Privilege-Control-Auditor\data\alerts\alerts.json, critical_alerts_log=C:\nordsec-clean-test\Identity-Privilege-Control-Auditor\logs\critical_alerts.log
+2026-05-09 03:02:26 INFO app 20260509-010226 [6/6] Safe exit.
+2026-05-09 03:03:08 INFO app 20260509-010308 Program start
+2026-05-09 03:03:08 INFO app 20260509-010308 Collection window resolved: platform=test log_hours=24 max_events=1000
+2026-05-09 03:03:08 INFO app 20260509-010308 Platform selection resolved: test
+2026-05-09 03:03:08 INFO app 20260509-010308 Selected platform: test
+2026-05-09 03:03:08 INFO app 20260509-010308 Analysis scope resolved: Test mockdata pipeline manual_cross_evidence_included=False manual_cross_evidence_platform=none
+2026-05-09 03:03:08 INFO app 20260509-010308 Collection window resolved: platform=test mode=test log_hours=24 max_events=1000
+2026-05-09 03:03:08 INFO app 20260509-010308 Environment checks starting
+2026-05-09 03:03:08 INFO app 20260509-010308 requirements.txt lists 2 dependencies.
+2026-05-09 03:03:08 INFO app 20260509-010308 Virtual environment detected.
+2026-05-09 03:03:08 INFO app 20260509-010308 Environment checks completed
+2026-05-09 03:03:08 INFO app 20260509-010308 Analysis configuration loaded from C:\nordsec-clean-test\Identity-Privilege-Control-Auditor\config\test_config.json
+2026-05-09 03:03:08 INFO app 20260509-010308 Evidence collection starting for platform=test mode=test
+2026-05-09 03:03:08 INFO app 20260509-010308 Collector phase completed with 0 result(s)
+2026-05-09 03:03:08 WARNING app 20260509-010308 Fallback collector activated because primary collector output was unavailable or incomplete.
+2026-05-09 03:03:08 INFO app 20260509-010308 Fallback search order: C:\nordsec-clean-test\Identity-Privilege-Control-Auditor\tests\mockdata
+2026-05-09 03:03:08 INFO app 20260509-010308 Fallback source candidate found: C:\nordsec-clean-test\Identity-Privilege-Control-Auditor\tests\mockdata\linux_identity.json
+2026-05-09 03:03:08 INFO app 20260509-010308 Fallback source validated as usable candidate: C:\nordsec-clean-test\Identity-Privilege-Control-Auditor\tests\mockdata\linux_identity.json
+2026-05-09 03:03:08 INFO app 20260509-010308 Fallback source candidate found: C:\nordsec-clean-test\Identity-Privilege-Control-Auditor\tests\mockdata\linux_policy.json
+2026-05-09 03:03:08 INFO app 20260509-010308 Fallback source validated as usable candidate: C:\nordsec-clean-test\Identity-Privilege-Control-Auditor\tests\mockdata\linux_policy.json
+2026-05-09 03:03:08 INFO app 20260509-010308 Fallback source candidate found: C:\nordsec-clean-test\Identity-Privilege-Control-Auditor\tests\mockdata\windows_identity.csv
+2026-05-09 03:03:08 INFO app 20260509-010308 Fallback source validated as usable candidate: C:\nordsec-clean-test\Identity-Privilege-Control-Auditor\tests\mockdata\windows_identity.csv
+2026-05-09 03:03:08 INFO app 20260509-010308 Fallback source candidate found: C:\nordsec-clean-test\Identity-Privilege-Control-Auditor\tests\mockdata\windows_events.csv
+2026-05-09 03:03:08 INFO app 20260509-010308 Fallback source validated as usable candidate: C:\nordsec-clean-test\Identity-Privilege-Control-Auditor\tests\mockdata\windows_events.csv
+2026-05-09 03:03:08 INFO app 20260509-010308 Fallback source candidate found: C:\nordsec-clean-test\Identity-Privilege-Control-Auditor\tests\mockdata\windows_policy.csv
+2026-05-09 03:03:08 INFO app 20260509-010308 Fallback source validated as usable candidate: C:\nordsec-clean-test\Identity-Privilege-Control-Auditor\tests\mockdata\windows_policy.csv
+2026-05-09 03:03:08 INFO app 20260509-010308 Fallback source candidate found: C:\nordsec-clean-test\Identity-Privilege-Control-Auditor\tests\mockdata\auth.log
+2026-05-09 03:03:08 INFO app 20260509-010308 Fallback source validated as usable candidate: C:\nordsec-clean-test\Identity-Privilege-Control-Auditor\tests\mockdata\auth.log
+2026-05-09 03:03:08 INFO app 20260509-010308 Fallback files used: linux_identity=C:\nordsec-clean-test\Identity-Privilege-Control-Auditor\tests\mockdata\linux_identity.json, linux_policy=C:\nordsec-clean-test\Identity-Privilege-Control-Auditor\tests\mockdata\linux_policy.json, windows_identity=C:\nordsec-clean-test\Identity-Privilege-Control-Auditor\tests\mockdata\windows_identity.csv, windows_events=C:\nordsec-clean-test\Identity-Privilege-Control-Auditor\tests\mockdata\windows_events.csv, windows_policy=C:\nordsec-clean-test\Identity-Privilege-Control-Auditor\tests\mockdata\windows_policy.csv, auth_log=C:\nordsec-clean-test\Identity-Privilege-Control-Auditor\tests\mockdata\auth.log
+2026-05-09 03:03:08 INFO app 20260509-010308 Fallback files missing: none
+2026-05-09 03:03:08 INFO app 20260509-010308 Fallback result: Primary collector output was incomplete, so fallback sources were used.
+2026-05-09 03:03:08 INFO app 20260509-010308 Fallback summary: activated=True used_files=6 reason=Primary collector output was incomplete, so fallback sources were used.
+2026-05-09 03:03:08 INFO app 20260509-010308 Initializing identity risk engine for run_id=20260509-010308
+2026-05-09 03:03:08 INFO app 20260509-010308 Loading analysis inputs for mode=test
+2026-05-09 03:03:08 INFO app 20260509-010308 Completed loading analysis inputs
+2026-05-09 03:03:08 INFO app 20260509-010308 Starting analysis for run_id=20260509-010308 mode=test
+2026-05-09 03:03:08 INFO app 20260509-010308 Starting identity normalization
+2026-05-09 03:03:08 INFO app 20260509-010308 Completed identity normalization
+2026-05-09 03:03:08 INFO app 20260509-010308 Starting identity privilege correlation
+2026-05-09 03:03:08 INFO app 20260509-010308 Completed identity privilege correlation
+2026-05-09 03:03:08 INFO app 20260509-010308 Starting event-to-identity correlation
+2026-05-09 03:03:08 INFO app 20260509-010308 Completed event-to-identity correlation
+2026-05-09 03:03:08 INFO app 20260509-010308 Starting policy correlation
+2026-05-09 03:03:08 INFO app 20260509-010308 Completed policy correlation
+2026-05-09 03:03:08 INFO app 20260509-010308 Starting anomaly detection
+2026-05-09 03:03:08 INFO app 20260509-010308 Completed anomaly detection
+2026-05-09 03:03:08 INFO app 20260509-010308 Completed analysis for run_id=20260509-010308 with 11 findings
+2026-05-09 03:03:08 INFO app 20260509-010308 Identity risk engine finished for run_id=20260509-010308
+2026-05-09 03:03:08 INFO app 20260509-010308 Wrote 11 alerts and 5 critical findings
+2026-05-09 03:03:08 INFO app 20260509-010308 Wrote report artifacts: text_report=C:\nordsec-clean-test\Identity-Privilege-Control-Auditor\reports\final_identity_risk_report.txt, executive_summary=C:\nordsec-clean-test\Identity-Privilege-Control-Auditor\reports\executive_summary.txt, json_report=C:\nordsec-clean-test\Identity-Privilege-Control-Auditor\reports\final_identity_risk_report.json, alerts_json=C:\nordsec-clean-test\Identity-Privilege-Control-Auditor\data\alerts\alerts.json, critical_alerts_log=C:\nordsec-clean-test\Identity-Privilege-Control-Auditor\logs\critical_alerts.log
+2026-05-09 03:03:08 INFO app 20260509-010308 Analysis completed with 11 findings across 7 identities
+2026-05-09 03:03:08 INFO app 20260509-010308 Report artifacts created: text_report=C:\nordsec-clean-test\Identity-Privilege-Control-Auditor\reports\final_identity_risk_report.txt, executive_summary=C:\nordsec-clean-test\Identity-Privilege-Control-Auditor\reports\executive_summary.txt, json_report=C:\nordsec-clean-test\Identity-Privilege-Control-Auditor\reports\final_identity_risk_report.json, alerts_json=C:\nordsec-clean-test\Identity-Privilege-Control-Auditor\data\alerts\alerts.json, critical_alerts_log=C:\nordsec-clean-test\Identity-Privilege-Control-Auditor\logs\critical_alerts.log
+2026-05-09 03:03:08 INFO app 20260509-010308 [6/6] Safe exit.

@@ -1,0 +1,32 @@
+{
+  "source": "linux",
+  "host": "ubuntu-finance-01",
+  "mode": "production",
+  "collection_time": "2026-05-08T04:20:02Z",
+  "policy": {
+    "ssh_root_login": {
+      "configured_value": "yes",
+      "expected_value": "no",
+      "status": "warning"
+    },
+    "password_authentication": {
+      "configured_value": "yes",
+      "expected_value": "no",
+      "status": "warning"
+    },
+    "ssh_config_readable": {
+      "configured_value": true,
+      "status": "ok"
+    },
+    "sensitive_file_permissions": {
+      "path": "/etc/shadow",
+      "configured_permissions": "0644",
+      "expected_permissions": "0640",
+      "status": "warning"
+    },
+    "audit_log_available": {
+      "configured_value": true,
+      "status": "ok"
+    }
+  }
+}

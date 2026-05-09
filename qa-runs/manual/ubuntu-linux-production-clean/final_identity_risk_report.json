@@ -1,0 +1,84 @@
+{
+  "analysis_scope": "Linux collector data only",
+  "fallback_reason": "Platform collectors produced usable outputs.",
+  "fallback_used": false,
+  "findings": [
+    {
+      "finding": "Unapproved Linux sudo user",
+      "identity": "hacker",
+      "reason": "The account has sudo privileges but is not listed in the approved baseline.",
+      "recommended_action": "Review sudo access against the approved baseline.",
+      "risk_level": "CRITICAL",
+      "source": "approved_linux_sudoers.csv"
+    },
+    {
+      "finding": "Inactive account with privileges",
+      "identity": "hacker",
+      "reason": "The account is inactive but still has privileged access.",
+      "recommended_action": "Review whether the account should be disabled or have privileges removed.",
+      "risk_level": "HIGH",
+      "source": "normalized_identities"
+    },
+    {
+      "finding": "Inactive account with privileges",
+      "identity": "secureadmin",
+      "reason": "The account is inactive but still has privileged access.",
+      "recommended_action": "Review whether the account should be disabled or have privileges removed.",
+      "risk_level": "HIGH",
+      "source": "normalized_identities"
+    }
+  ],
+  "manual_cross_evidence_files": [],
+  "manual_cross_evidence_included": false,
+  "manual_cross_evidence_platform": "none",
+  "manual_cross_evidence_warnings": [],
+  "mode": "production",
+  "run_id": "20260509-000501",
+  "selected_platform": "linux",
+  "summary": {
+    "counts": {
+      "CRITICAL": 1,
+      "HIGH": 2,
+      "LOW": 0,
+      "MEDIUM": 0
+    },
+    "identities": [
+      {
+        "findings": [
+          {
+            "finding": "Unapproved Linux sudo user",
+            "identity": "hacker",
+            "reason": "The account has sudo privileges but is not listed in the approved baseline.",
+            "recommended_action": "Review sudo access against the approved baseline.",
+            "risk_level": "CRITICAL",
+            "source": "approved_linux_sudoers.csv"
+          },
+          {
+            "finding": "Inactive account with privileges",
+            "identity": "hacker",
+            "reason": "The account is inactive but still has privileged access.",
+            "recommended_action": "Review whether the account should be disabled or have privileges removed.",
+            "risk_level": "HIGH",
+            "source": "normalized_identities"
+          }
+        ],
+        "identity": "hacker",
+        "risk_level": "CRITICAL"
+      },
+      {
+        "findings": [
+          {
+            "finding": "Inactive account with privileges",
+            "identity": "secureadmin",
+            "reason": "The account is inactive but still has privileged access.",
+            "recommended_action": "Review whether the account should be disabled or have privileges removed.",
+            "risk_level": "HIGH",
+            "source": "normalized_identities"
+          }
+        ],
+        "identity": "secureadmin",
+        "risk_level": "HIGH"
+      }
+    ]
+  }
+}

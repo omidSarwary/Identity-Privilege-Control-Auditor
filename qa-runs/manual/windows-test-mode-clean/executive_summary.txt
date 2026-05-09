@@ -1,0 +1,15 @@
+NORDSEC IDENTITY & PRIVILEGE CONTROL EXECUTIVE SUMMARY
+Run ID: 20260509-010308
+Mode: test
+Total findings: 11
+Critical: 5
+High: 4
+Medium: 1
+Low: 1
+
+Top findings:
+- disabled_user: Disabled account shows authentication activity
+- inactive_priv_user: Unapproved Windows administrators member
+- inactive_priv_user: Inactive account with privileges
+- svc_archive: Unapproved Linux sudo user
+- svc_archive: Inactive account with privileges

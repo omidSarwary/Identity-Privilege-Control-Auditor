@@ -1,0 +1,23 @@
+{
+  "alert_count": 2,
+  "alerts": [
+    {
+      "finding": "Unapproved Windows administrators member",
+      "identity": "eviladmin",
+      "reason": "The account is a local administrator but is not listed in the approved baseline.",
+      "recommended_action": "Review local administrator membership against the approved baseline.",
+      "risk_level": "CRITICAL",
+      "source": "windows_identity.csv"
+    },
+    {
+      "finding": "Windows execution policy differs from the approved baseline",
+      "identity": "system_policy",
+      "reason": "The readable Windows execution policy does not match the approved baseline.",
+      "recommended_action": "Review the policy against the approved baseline.",
+      "risk_level": "MEDIUM",
+      "source": "windows_policy.csv"
+    }
+  ],
+  "mode": "production",
+  "run_id": "20260509-013437"
+}

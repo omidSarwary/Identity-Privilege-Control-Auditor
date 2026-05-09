@@ -1,0 +1,11 @@
+ComputerName,TimeCreated,EventId,TargetUserName,IpAddress,EventType
+WIN-FINANCE-01,2026-05-08T02:01:11Z,4625,disabled_user,203.0.113.88,failed_login
+WIN-FINANCE-01,2026-05-08T02:01:44Z,4625,disabled_user,203.0.113.88,failed_login
+WIN-FINANCE-01,2026-05-08T02:02:10Z,4625,disabled_user,203.0.113.88,failed_login
+WIN-FINANCE-01,2026-05-08T02:05:55Z,4625,Administrator,198.51.100.25,failed_login
+WIN-FINANCE-01,2026-05-08T02:06:12Z,4625,Administrator,198.51.100.25,failed_login
+WIN-FINANCE-01,2026-05-08T02:12:18Z,4624,adm_svc_win,10.10.10.50,successful_login
+WIN-FINANCE-01,2026-05-08T02:44:29Z,4624,helpdesk_user,10.10.10.61,successful_login
+WIN-FINANCE-01,2026-05-08T03:01:12Z,4624,unauthorized_admin,192.168.56.77,successful_login
+WIN-FINANCE-01,2026-05-08T03:05:44Z,4625,helpdesk_user,203.0.113.88,failed_login
+WIN-FINANCE-01,2026-05-08T03:08:31Z,4624,svc_backup,10.10.10.75,successful_login

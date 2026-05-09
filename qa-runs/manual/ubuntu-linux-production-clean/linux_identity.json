@@ -1,0 +1,97 @@
+{
+  "source": "linux",
+  "host": "omidlab24",
+  "collection_time": "2026-05-09T00:05:01Z",
+  "mode": "production",
+  "users": [
+    {
+      "username": "root",
+      "enabled": false,
+      "privileges": [],
+      "is_inactive": true,
+      "last_login": ""
+    },
+    {
+      "username": "nobody",
+      "enabled": false,
+      "privileges": [],
+      "is_inactive": true,
+      "last_login": ""
+    },
+    {
+      "username": "omidlab",
+      "enabled": true,
+      "privileges": [
+        "sudo"
+      ],
+      "is_inactive": false,
+      "last_login": "omidlab          pts/0    10.10.10.109                              Sat May  9 01:58:37 +0200 2026"
+    },
+    {
+      "username": "secureadmin",
+      "enabled": true,
+      "privileges": [
+        "sudo"
+      ],
+      "is_inactive": true,
+      "last_login": ""
+    },
+    {
+      "username": "hacker",
+      "enabled": false,
+      "privileges": [
+        "sudo"
+      ],
+      "is_inactive": true,
+      "last_login": ""
+    }
+  ],
+  "sudo_users": [
+    "hacker",
+    "omidlab",
+    "secureadmin"
+  ],
+  "auth_events": [
+    {
+      "username": "omidlab",
+      "event_type": "successful_login",
+      "count": 1,
+      "timestamp": "May 09 01:58:36",
+      "source": "journalctl",
+      "ip_address": "10.10.10.109"
+    }
+  ],
+  "policy": {
+    "ssh_policy": {
+      "permit_root_login": "no",
+      "password_authentication": "unknown",
+      "pubkey_authentication": "unknown"
+    },
+    "file_permissions": {
+      "files": [
+        {
+          "path": "/etc/passwd",
+          "mode": "644",
+          "readable": true,
+          "status": "ok"
+        },
+        {
+          "path": "/etc/shadow",
+          "mode": "640",
+          "readable": true,
+          "status": "ok"
+        },
+        {
+          "path": "/etc/sudoers",
+          "mode": "440",
+          "readable": true,
+          "status": "ok"
+        }
+      ]
+    }
+  },
+  "collector_status": {
+    "source": "sensor",
+    "status": "ready"
+  }
+}

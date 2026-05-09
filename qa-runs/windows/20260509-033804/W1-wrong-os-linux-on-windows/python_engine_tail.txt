@@ -1,0 +1,28 @@
+﻿2026-05-09 03:38:10 INFO app 20260509-013810 Program start
+2026-05-09 03:38:10 INFO app 20260509-013810 Collection window resolved: platform=linux log_hours=1 max_events=100
+2026-05-09 03:38:10 INFO app 20260509-013810 Platform selection resolved: linux
+2026-05-09 03:38:10 INFO app 20260509-013810 Selected platform: linux
+2026-05-09 03:38:10 INFO app 20260509-013810 Analysis scope resolved: Linux collector data only manual_cross_evidence_included=False manual_cross_evidence_platform=none
+2026-05-09 03:38:10 INFO app 20260509-013810 Collection window resolved: platform=linux mode=production log_hours=1 max_events=100
+2026-05-09 03:38:10 INFO app 20260509-013810 Environment checks starting
+2026-05-09 03:38:10 INFO app 20260509-013810 requirements.txt lists 2 dependencies.
+2026-05-09 03:38:10 INFO app 20260509-013810 Virtual environment detected.
+2026-05-09 03:38:10 INFO app 20260509-013810 Environment checks completed
+2026-05-09 03:38:10 INFO app 20260509-013810 Analysis configuration loaded from C:\nordsec-clean-test\Identity-Privilege-Control-Auditor\config\production_config.json
+2026-05-09 03:38:10 INFO app 20260509-013810 Evidence collection starting for platform=linux mode=production
+2026-05-09 03:38:10 INFO app 20260509-013810 Collector result: platform=linux mode=production success=False returncode=unknown missing_outputs=data/collected/linux_identity.json, data/collected/linux_policy.json stale_outputs=none
+2026-05-09 03:38:10 INFO app 20260509-013810 Collector phase completed with 1 result(s)
+2026-05-09 03:38:10 WARNING app 20260509-013810 Fallback collector activated because primary collector output was unavailable or incomplete.
+2026-05-09 03:38:10 INFO app 20260509-013810 Fallback search order: C:\nordsec-clean-test\Identity-Privilege-Control-Auditor\data\collected, C:\nordsec-clean-test\Identity-Privilege-Control-Auditor\data\incoming, C:\nordsec-clean-test\Identity-Privilege-Control-Auditor\logdata\linux, C:\nordsec-clean-test\Identity-Privilege-Control-Auditor\logdata\windows
+2026-05-09 03:38:10 WARNING app 20260509-013810 Fallback source missing after search: linux_identity.json
+2026-05-09 03:38:10 WARNING app 20260509-013810 Fallback source missing after search: linux_policy.json
+2026-05-09 03:38:10 WARNING app 20260509-013810 Fallback source missing after search: windows_identity.csv
+2026-05-09 03:38:10 INFO app 20260509-013810 Fallback source candidate found: C:\nordsec-clean-test\Identity-Privilege-Control-Auditor\logdata\windows\security_events.csv
+2026-05-09 03:38:10 INFO app 20260509-013810 Fallback source validated as usable candidate: C:\nordsec-clean-test\Identity-Privilege-Control-Auditor\logdata\windows\security_events.csv
+2026-05-09 03:38:10 WARNING app 20260509-013810 Fallback source missing after search: windows_policy.csv
+2026-05-09 03:38:10 WARNING app 20260509-013810 Fallback source missing after search: auth.log
+2026-05-09 03:38:10 INFO app 20260509-013810 Fallback files used: windows_events=C:\nordsec-clean-test\Identity-Privilege-Control-Auditor\logdata\windows\security_events.csv
+2026-05-09 03:38:10 INFO app 20260509-013810 Fallback files missing: linux_identity.json, linux_policy.json, windows_identity.csv, windows_policy.csv, auth.log
+2026-05-09 03:38:10 INFO app 20260509-013810 Fallback result: Primary collector output was incomplete, so fallback sources were used.
+2026-05-09 03:38:10 INFO app 20260509-013810 Fallback summary: activated=True used_files=0 reason=No in-scope fallback data was found in any configured directory.
+2026-05-09 03:38:10 WARNING app 20260509-013810 No valid evidence files were found. Place exported logs in data/incoming/ or logdata/linux/ or logdata/windows/ and run again.

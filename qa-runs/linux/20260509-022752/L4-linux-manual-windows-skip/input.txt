@@ -1,0 +1,5 @@
+linux
+1
+100
+y
+skip

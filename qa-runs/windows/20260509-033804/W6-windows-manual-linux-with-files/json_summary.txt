@@ -1,0 +1,18 @@
+﻿mode: production
+selected_platform: windows
+analysis_scope: Windows collector data + manual Linux evidence
+manual_cross_evidence_included: True
+manual_cross_evidence_platform: linux
+fallback_used: False
+finding_count: 8
+summary_counts: {'CRITICAL': 5, 'HIGH': 2, 'LOW': 0, 'MEDIUM': 1}
+
+findings:
+- bio | CRITICAL | Unapproved Linux sudo user | source= approved_linux_sudoers.csv
+- disabled_user | CRITICAL | Disabled account shows authentication activity | source= events
+- eviladmin | CRITICAL | Unapproved Windows administrators member | source= windows_identity.csv
+- svc_archive | CRITICAL | Unapproved Linux sudo user | source= approved_linux_sudoers.csv
+- svc_archive | HIGH | Inactive account with privileges | source= normalized_identities
+- unauthorized_sudo | CRITICAL | Unapproved Linux sudo user | source= approved_linux_sudoers.csv
+- system_policy | MEDIUM | Windows execution policy differs from the approved baseline | source= windows_policy.csv
+- 203.0.113.45 | HIGH | Multiple failed logins from the same IP address | source= events

@@ -1,0 +1,8 @@
+NORDSEC IDENTITY & PRIVILEGE CONTROL EXECUTIVE SUMMARY
+Run ID: 20260509-010905
+Mode: production
+Total findings: 1
+Critical: 0
+High: 0
+Medium: 1
+Low: 0

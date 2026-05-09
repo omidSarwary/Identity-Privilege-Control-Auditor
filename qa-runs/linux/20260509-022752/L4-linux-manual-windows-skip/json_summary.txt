@@ -1,0 +1,13 @@
+mode: production
+selected_platform: linux
+analysis_scope: Linux collector data only
+manual_cross_evidence_included: False
+manual_cross_evidence_platform: none
+fallback_used: False
+finding_count: 3
+summary_counts: {'CRITICAL': 1, 'HIGH': 2, 'LOW': 0, 'MEDIUM': 0}
+
+findings:
+- hacker | CRITICAL | Unapproved Linux sudo user | source= approved_linux_sudoers.csv
+- hacker | HIGH | Inactive account with privileges | source= normalized_identities
+- secureadmin | HIGH | Inactive account with privileges | source= normalized_identities

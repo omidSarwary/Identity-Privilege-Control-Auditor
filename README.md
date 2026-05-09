@@ -227,6 +227,98 @@ risk first.
 - The project depends on the quality of the provided logs, baselines, and
   exported identity data.
 
+# Manual QA Evidence
+
+## 1. Location of Saved Evidence
+
+Manual QA evidence from clean Ubuntu and Windows VM runs is stored in:
+
+```
+qa-runs/
+```
+
+The main QA overview is documented in:
+
+```
+qa-runs/README.md
+```
+
+This folder contains:
+
+- Console output
+- Generated reports
+- JSON reports
+- Alerts
+- Collector logs
+- File‑status outputs
+- Scenario notes from manual testing
+
+---
+
+## 2. Clean VM Runs
+
+Focused clean‑run evidence is stored in:
+
+```
+qa-runs/manual/ubuntu-test-mode-clean/
+qa-runs/manual/ubuntu-linux-production-clean/
+qa-runs/manual/windows-test-mode-clean/
+qa-runs/manual/windows-production-clean/
+qa-runs/manual/windows-production-after-fix/
+```
+
+These folders include:
+
+- Test‑mode runs
+- Linux production collection
+- Windows production collection
+- Windows collector re‑test after fixing admin‑collection issues with unresolved/orphaned SID handling
+
+---
+
+## 3. Manual QA Scenario Scripts
+
+The manual QA harness scripts are located in:
+
+```
+tools/manual_test_linux.sh
+tools/manual_test_windows.ps1
+```
+
+### Running the Linux QA Harness
+
+From the project root on Linux:
+
+```bash
+chmod +x tools/manual_test_linux.sh
+./tools/manual_test_linux.sh
+```
+
+### Running the Windows QA Harness
+
+From the project root in PowerShell:
+
+```powershell
+.\tools\manual_test_windows.ps1
+```
+
+The harness scripts:
+
+- Run one scenario at a time
+- Pause between scenarios
+- Save evidence under:
+
+```
+qa-runs/linux/<timestamp>/
+qa-runs/windows/<timestamp>/
+```
+
+---
+
+## 4. Existing QA Results
+
+Previously saved QA results are included in the repository so test evidence can be reviewed **without rerunning every scenario**.
+
 ## Documentation
 
 Additional project documentation is available in the `docs/` directory.

@@ -1,0 +1,8 @@
+ComputerName,CollectionTime,Username,Enabled,IsLocalAdmin,LastLogon,Source
+WIN-FINANCE-01,2026-05-08T04:22:11Z,Administrator,False,True,2025-11-18T08:14:02Z,local_sam
+WIN-FINANCE-01,2026-05-08T04:22:11Z,adm_svc_win,True,True,2026-05-08T02:18:55Z,local_sam
+WIN-FINANCE-01,2026-05-08T04:22:11Z,unauthorized_admin,True,True,2026-05-08T03:01:12Z,local_sam
+WIN-FINANCE-01,2026-05-08T04:22:11Z,inactive_priv_user,True,True,2025-08-14T19:55:21Z,local_sam
+WIN-FINANCE-01,2026-05-08T04:22:11Z,disabled_user,False,False,2025-10-01T13:40:08Z,local_sam
+WIN-FINANCE-01,2026-05-08T04:22:11Z,helpdesk_user,True,False,2026-05-08T01:55:44Z,local_sam
+WIN-FINANCE-01,2026-05-08T04:22:11Z,svc_backup,True,False,2026-05-07T22:31:55Z,local_sam

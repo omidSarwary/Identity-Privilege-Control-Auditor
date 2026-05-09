@@ -1,0 +1,12 @@
+﻿mode: production
+selected_platform: windows
+analysis_scope: Windows collector data only
+manual_cross_evidence_included: False
+manual_cross_evidence_platform: none
+fallback_used: False
+finding_count: 2
+summary_counts: {'CRITICAL': 1, 'HIGH': 0, 'LOW': 0, 'MEDIUM': 1}
+
+findings:
+- eviladmin | CRITICAL | Unapproved Windows administrators member | source= windows_identity.csv
+- system_policy | MEDIUM | Windows execution policy differs from the approved baseline | source= windows_policy.csv

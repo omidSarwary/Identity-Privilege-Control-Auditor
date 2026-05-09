@@ -1,0 +1,77 @@
+﻿NORDSEC IDENTITY & PRIVILEGE CONTROL AUDIT REPORT
+Run ID: 20260509-014239
+Date: 2026-05-09 01:42:39 UTC
+Mode: production
+Platform selected: windows
+Analysis scope: Windows collector data only
+Manual cross-platform evidence included: No
+Manual cross-platform evidence platform: none
+Manual evidence files found:
+- None
+Data sources used:
+- linux_identity: not selected, path=n/a, source=not_selected
+- linux_policy: not selected, path=n/a, source=not_selected
+- windows_identity: loaded, valid, path=C:\nordsec-clean-test\Identity-Privilege-Control-Auditor\data\collected\windows_identity.csv, source=collector
+- windows_events: loaded, valid, path=C:\nordsec-clean-test\Identity-Privilege-Control-Auditor\data\collected\windows_events.csv, source=collector
+- windows_policy: loaded, valid, path=C:\nordsec-clean-test\Identity-Privilege-Control-Auditor\data\collected\windows_policy.csv, source=collector
+- approved_linux_sudoers: loaded, valid, path=C:\nordsec-clean-test\Identity-Privilege-Control-Auditor\config\baselines\approved_linux_sudoers.csv
+- approved_windows_admins: loaded, valid, path=C:\nordsec-clean-test\Identity-Privilege-Control-Auditor\config\baselines\approved_windows_admins.csv
+- approved_service_accounts: loaded, valid, path=C:\nordsec-clean-test\Identity-Privilege-Control-Auditor\config\baselines\approved_service_accounts.csv
+- expected_policy_baseline: loaded, valid, path=C:\nordsec-clean-test\Identity-Privilege-Control-Auditor\config\baselines\expected_policy_baseline.json
+- linux_auth_events: not selected, path=n/a, source=collector
+- linux_auth_log: not selected, path=n/a, source=not_selected
+Fallback used: No
+
+1. Executive Summary
+Total findings: 2
+Critical: 1
+High: 0
+Medium: 1
+Low: 0
+
+2. Data Quality Summary
+Warnings:
+- No manual Linux evidence files were found after the user requested it.
+- No errors recorded.
+
+3. Critical Findings
+- Identity: eviladmin
+  Finding: Unapproved Windows administrators member
+  Reason: The account is a local administrator but is not listed in the approved baseline.
+  Source: windows_identity.csv
+  Recommended follow-up: Review local administrator membership against the approved baseline.
+
+4. High Findings
+- None observed.
+
+5. Medium Findings
+- Identity: system_policy
+  Finding: Windows execution policy differs from the approved baseline
+  Reason: The readable Windows execution policy does not match the approved baseline.
+  Source: windows_policy.csv
+  Recommended follow-up: Review the policy against the approved baseline.
+
+6. Low Findings
+- None observed.
+
+7. Identity Risk Table
+- eviladmin | risk=CRITICAL | findings=1 | sources=windows_identity.csv
+- system_policy | risk=MEDIUM | findings=1 | sources=windows_policy.csv
+
+8. Policy Deviations
+- Identity: system_policy
+  Finding: Windows execution policy differs from the approved baseline
+  Reason: The readable Windows execution policy does not match the approved baseline.
+  Source: windows_policy.csv
+  Recommended follow-up: Review the policy against the approved baseline.
+
+9. Log/Event Correlations
+- None observed.
+
+10. Recommended Follow-up
+Review local administrator membership against the approved baseline.
+Review the policy against the approved baseline.
+
+11. Limitations
+Warnings:
+- No manual Linux evidence files were found after the user requested it.
